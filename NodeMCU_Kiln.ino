@@ -15,8 +15,8 @@
 // NOTE: ****** kiln was flashed with ESP Board version 2.7.2
 
 // sketch will write default settings if new build
-//const char version[] = "build "  __DATE__ " " __TIME__; 
-const char version[] = __DATE__ " " __TIME__; 
+const char version[] = "build "  __DATE__ " " __TIME__; 
+//const char version[] = __DATE__ " " __TIME__; 
 
 #if !defined(ARRAY_SIZE)
     #define ARRAY_SIZE(x) (sizeof((x)) / sizeof((x)[0]))
@@ -39,16 +39,16 @@ const char version[] = __DATE__ " " __TIME__;
 #define ISTS_BOOL(v)  // assign status value
 #include <ModbusRTU.h>
 #define SLAVE_ID                  1
-/* coils (RW) */
+/* coils 1-9999 (RW) */
 #define MB_CMD_SELECT_SCHEDULE    1
 #define MB_CMD_START_PROFILE      2
 #define MB_CMD_STOP_PROFILE       3
 #define MB_CMD_HOLD_RELEASE       4
-/* input status (R) */
+/* input status 10001-19999 (R) */
 #define MB_STS_SSR_01             1
 #define MB_STS_SSR_02             2
 #define MB_STS_RELEASE_REQ        3
-/* holding registers (RW) 16 bit*/
+/* holding registers 40001-49999 (RW) 16 bit*/
 #define MB_MODE                   1
 #define MB_CMD_SELECTED_SCHEDULE  2
 #define MB_CMD_SETPOINT           3
@@ -58,7 +58,7 @@ const char version[] = __DATE__ " " __TIME__;
 #define MB_PID_P_02               11
 #define MB_PID_I_02               13
 #define MB_PID_D_02               15
-/* input registers (R) 16 bit*/
+/* input registers 30001-39999 (R) 16 bit*/
 #define MB_HEARTBEAT              1
 #define MB_STS_REMAINING_TIME_H   2
 #define MB_STS_REMAINING_TIME_M   3
@@ -259,11 +259,11 @@ void setup() {
   //
   if (!thermocouple_ch0.begin()) {
     //Serial.println("ERROR.");
-    while (1) delay(10);
+    //while (1) delay(10);
   }
   if (!thermocouple_ch1.begin()) {
     //Serial.println("ERROR.");
-    while (1) delay(10);
+    //while (1) delay(10);
   }
 
   //
@@ -276,11 +276,11 @@ void setup() {
   //
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    Serial.println("Connection Failed! Rebooting...");
-    delay(5000);
-    ESP.restart();
-  }
+  //while (WiFi.waitForConnectResult() != WL_CONNECTED) {
+  //  Serial.println("Connection Failed! Rebooting...");
+  //  delay(5000);
+  //  ESP.restart();
+  //}
   
   //
   // setup REST API
@@ -417,9 +417,9 @@ void setup() {
   //
   // done with setup
   //
-  Serial.println("Ready");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
+  //Serial.println("Ready");
+  //Serial.print("IP address: ");
+  //Serial.println(WiFi.localIP());
 }
 
 union floatAsBytes {
