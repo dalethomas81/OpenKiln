@@ -1,0 +1,10 @@
+ERROR 2020-07-20T13:42:12.269 ..\..\qModMaster\src\modbusadapter.cpp @ 276 Read Data failed.  "Error : Response not from requested slave" 
+ERROR 2020-07-20T13:42:13.272 ..\..\qModMaster\src\modbusadapter.cpp @ 276 Read Data failed.  "Error : Timeout" 
+ERROR 2020-07-20T13:42:14.271 ..\..\qModMaster\src\modbusadapter.cpp @ 276 Read Data failed.  "Error : Timeout" 
+ERROR 2020-07-20T13:42:15.271 ..\..\qModMaster\src\modbusadapter.cpp @ 276 Read Data failed.  "Error : Timeout" 
+ERROR 2020-07-20T13:42:16.272 ..\..\qModMaster\src\modbusadapter.cpp @ 276 Read Data failed.  "Error : Timeout" 
+ERROR 2020-07-20T13:42:17.272 ..\..\qModMaster\src\modbusadapter.cpp @ 276 Read Data failed.  "Error : Timeout" 
+ERROR 2020-07-20T13:56:15.585 ..\..\qModMaster\src\modbusadapter.cpp @ 73 Connection failed. Could not connect to serial port 
+ERROR 2020-07-20T13:56:29.829 ..\..\qModMaster\src\modbusadapter.cpp @ 276 Read Data failed.  "Error : Illegal data address" 
+ERROR 2020-07-20T13:56:30.826 ..\..\qModMaster\src\modbusadapter.cpp @ 276 Read Data failed.  "Error : Illegal data address" 
+ERROR 2020-07-20T13:56:31.828 ..\..\qModMaster\src\modbusadapter.cpp @ 276 Read Data failed.  "Error : Illegal data address" 

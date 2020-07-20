@@ -27,9 +27,6 @@ const char Initialized[] = {"Initialized02"};
 //#include <ESP8266mDNS.h>
 //#include <WiFiUdp.h>
 #include <ArduinoOTA.h>
-//#define OUTPUT_BUFFER_SIZE 5000 // for aRest
-//#define DEBUG_MODE 1 // for aRest
-//#include <aREST.h>
 #include "LittleFS.h"
 #include <EEPROM.h>
 
@@ -285,6 +282,7 @@ double HregToDouble(uint16_t reg) {
 unsigned long EepromWritten_Timer = millis();
 
 void handleModbus() {
+  /* prevent indexing outside the arrays */
   if (ui_SelectedSchedule >= NUMBER_OF_SCHEDULES) ui_SelectedSchedule = NUMBER_OF_SCHEDULES - 1;
   if (SegmentIndex >= NUMBER_OF_SEGMENTS) SegmentIndex = NUMBER_OF_SEGMENTS - 1;
   if (ui_ChangeSelectedSchedule >= NUMBER_OF_SCHEDULES) ui_ChangeSelectedSchedule = NUMBER_OF_SCHEDULES - 1;
@@ -1224,9 +1222,9 @@ void setup() {
   int TryCount = 0;
   while (WiFi.waitForConnectResult() != WL_CONNECTED && TryCount < 3) {
     TryCount++;
-    Serial.println("Connection Failed! Rebooting...");
+    //Serial.println("Connection Failed! Rebooting...");
     delay(5000);
-    ESP.restart();
+    //ESP.restart();
   }
 
   //
