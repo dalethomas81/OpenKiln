@@ -57,7 +57,7 @@ const char Initialized[] = {"Initialized10"};
 #define MB_STS_IN_PROCESS         5
 #define MB_STS_THERMAL_RUNAWAY    6
 #define MB_STS_EEPROM_WRITTEN     7 //50
-/* holding registers (RW) 16 bit*/
+/* holding registers (RW) 16 bit */
 #define MB_MODE                   1
 #define MB_CMD_SELECTED_SCHEDULE  2
 #define MB_CMD_SETPOINT           3
@@ -74,7 +74,7 @@ const char Initialized[] = {"Initialized10"};
 #define MB_SCH_SEG_SOAK_TIME      36 //119
 #define MB_SCH_SEG_SELECTED       37 //120
 #define MB_SCH_SELECTED           38 //121
-/* input registers (R) 16 bit*/
+/* input registers (R) 16 bit */
 #define MB_HEARTBEAT              1
 #define MB_STS_REMAINING_TIME_H   2
 #define MB_STS_REMAINING_TIME_M   3
