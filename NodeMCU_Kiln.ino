@@ -17,7 +17,7 @@
 // sketch will write default settings if new build
 //const char version[] = "build "  __DATE__ " " __TIME__; 
 const char version[] = __DATE__ " " __TIME__; 
-const char Initialized[] = {"Initialized02"};
+const char Initialized[] = {"Initialized03"};
 
 #if !defined(ARRAY_SIZE)
     #define ARRAY_SIZE(x) (sizeof((x)) / sizeof((x)[0]))
@@ -33,10 +33,10 @@ const char Initialized[] = {"Initialized02"};
 //
 // modbus
 //
-#define COIL_VAL(v)   // get coil value
-#define COIL_BOOL(v)  // assign coil value
-#define ISTS_VAL(v)   // get status value
-#define ISTS_BOOL(v)  // assign status value
+//#define COIL_VAL(v)   // get coil value
+//#define COIL_BOOL(v)  // assign coil value
+//#define ISTS_VAL(v)   // get status value
+//#define ISTS_BOOL(v)  // assign status value
 #include <ModbusRTU.h> // https://github.com/emelianov/modbus-esp8266
 #include <ModbusIP_ESP8266.h>
 #define SLAVE_ID                  1
@@ -46,9 +46,9 @@ const char Initialized[] = {"Initialized02"};
 #define MB_CMD_STOP_PROFILE       3
 #define MB_CMD_HOLD_RELEASE       4
 #define MB_CMD_THERM_OVERRIDE     5
-#define MB_CMD_WRITE_EEPROM       50
-#define MB_SCH_SEG_ENABLED        100
-#define MB_SCH_SEG_HOLD_EN        101
+#define MB_CMD_WRITE_EEPROM       6
+#define MB_SCH_SEG_ENABLED        7
+#define MB_SCH_SEG_HOLD_EN        8
 /* input status (R) */
 #define MB_STS_SSR_01             1
 #define MB_STS_SSR_02             2
@@ -108,11 +108,14 @@ uint16_t cbWrite(TRegister* reg, uint16_t val) {
   return reg->value;
 }*/
 
+/*
 uint16_t cbWriteEeprom(TRegister* reg, uint16_t val) {
   writeScheduleToEeeprom();
   ui_EepromWritten = true;
+  ui_WriteEeprom = false;
   return reg->value;
 }
+*/
 
 //
 // pid
@@ -157,6 +160,8 @@ Adafruit_MAX31855 thermocouple_ch1(MAXCS_CH1);
 #define MAIN_CONTACTOR_OUTPUT     D4
 
 #define EEPROM_SCH_START_ADDR     100
+
+#define MAX_STRING_LENGTH         15
 
 //
 // init variables
@@ -211,10 +216,11 @@ bool ui_StopProfile = false;
 bool ui_Segment_HoldReleaseRequest = false;
 bool ui_Segment_HoldRelease = false;
 bool ui_SelectSchedule = false;
-uint16_t ui_SelectedSchedule = 0, ui_SelectedScheduleLast = 0;
+uint16_t ui_SelectedSchedule = 0, ui_SelectedScheduleLast = 1;
 double ui_Setpoint = 0.0;
 bool ui_StsSSRPin_01, ui_StsSSRPin_02;
-uint16_t ui_ChangeSelectedSchedule = 1, ui_ChangeSelectedSegment = 0;
+uint16_t ui_ChangeSelectedSchedule = 0, ui_ChangeSelectedSegment = 0;
+bool ui_WriteEeprom = false;
 
 /*
 uint16_t cbSchedule(TRegister* reg, uint16_t val) {
@@ -230,22 +236,22 @@ struct TIME {
   uint16_t milliseconds;
 } Segment_TimeRemaining;
       
-struct SCHEDULE_SEGMENT {
-  char Name[15] = {'\0'};
-  bool Enabled;
-  bool HoldEnabled;
-  double Setpoint;    // in degrees(C)
-  uint16_t RampRate;  // in degrees(C)/hour
-  uint16_t SoakTime;  // in minutes
-  uint8_t State;
+struct SCHEDULE_SEGMENT { // 1 segment is 30 bytes when MAX_STRING_LENGTH = 15
+  char Name[MAX_STRING_LENGTH] = {'\0'}; // char is 1 byte 15
+  bool Enabled; // bool is 1 byte
+  bool HoldEnabled; // bool is 1 byte
+  double Setpoint;    // in degrees(C) // double is 8 bytes
+  uint16_t RampRate;  // in degrees(C)/hour // uint16_t is 2 bytes
+  uint16_t SoakTime;  // in minutes // uint16_t is 2 bytes
+  uint8_t State; // uint8_t is 1 bytes
 };
 
-struct SCHEDULE {
-  char Name[15] = {'\0'};
-  bool CMD_Select;
-  bool STS_Select;
-  SCHEDULE_SEGMENT Segments[NUMBER_OF_SEGMENTS];
-} Schedules[NUMBER_OF_SCHEDULES];
+struct SCHEDULE { // each schedule is 303 bytes when NUMBER_OF_SEGMENTS = 10 and MAX_STRING_LENGTH = 15
+  char Name[MAX_STRING_LENGTH] = {'\0'}; // char is 1 byte
+  bool CMD_Select; // bool is 1 byte
+  bool STS_Select; // bool is 1 byte
+  SCHEDULE_SEGMENT Segments[NUMBER_OF_SEGMENTS]; // 1 segment is 30 - when NUMBER_OF_SEGMENTS = 10 this is 300
+} Schedules[NUMBER_OF_SCHEDULES],LoadedSchedule;
 
 union floatAsBytes {
   float fval;
@@ -282,18 +288,22 @@ double HregToDouble(uint16_t reg) {
 unsigned long EepromWritten_Timer = millis();
 
 void handleModbus() {
-  /* prevent indexing outside the arrays */
+  /* prevent arrays from going out of bounds from ui */
   if (ui_SelectedSchedule >= NUMBER_OF_SCHEDULES) ui_SelectedSchedule = NUMBER_OF_SCHEDULES - 1;
+  if (ui_SelectedSchedule < 0) ui_SelectedSchedule = 0;
   if (SegmentIndex >= NUMBER_OF_SEGMENTS) SegmentIndex = NUMBER_OF_SEGMENTS - 1;
+  if (SegmentIndex < 0) SegmentIndex = 0;
   if (ui_ChangeSelectedSchedule >= NUMBER_OF_SCHEDULES) ui_ChangeSelectedSchedule = NUMBER_OF_SCHEDULES - 1;
-  if (ui_ChangeSelectedSchedule >= NUMBER_OF_SEGMENTS) ui_ChangeSelectedSegment = NUMBER_OF_SEGMENTS - 1;
+  if (ui_ChangeSelectedSchedule < 0) ui_ChangeSelectedSchedule = 0;
+  if (ui_ChangeSelectedSegment >= NUMBER_OF_SEGMENTS) ui_ChangeSelectedSegment = NUMBER_OF_SEGMENTS - 1;
+  if (ui_ChangeSelectedSegment < 0) ui_ChangeSelectedSegment = 0;
   /* coils (RW) */
   mb_rtu.Coil(MB_CMD_SELECT_SCHEDULE, ui_SelectSchedule);
   mb_rtu.Coil(MB_CMD_START_PROFILE, ui_StartProfile);
   mb_rtu.Coil(MB_CMD_STOP_PROFILE, ui_StopProfile);
   mb_rtu.Coil(MB_CMD_HOLD_RELEASE, ui_Segment_HoldRelease);
   mb_rtu.Coil(MB_CMD_THERM_OVERRIDE, ui_ThermalRunawayOverride);
-  //mb_rtu.Coil(MB_CMD_WRITE_EEPROM, ???);
+  mb_rtu.Coil(MB_CMD_WRITE_EEPROM, ui_WriteEeprom);
   mb_rtu.Coil(MB_SCH_SEG_ENABLED, Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Enabled);
   mb_rtu.Coil(MB_SCH_SEG_HOLD_EN, Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].HoldEnabled);
   /* input status (R) */
@@ -323,7 +333,7 @@ void handleModbus() {
     y++;
   }
   int x = 0;
-  for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name);i=i+2) {
+  for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name)-1;i=i+2) {
     charAsUnit16 temp;
     temp.c[0] = Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[i];
     temp.c[1] = Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[i + 1];
@@ -346,7 +356,7 @@ void handleModbus() {
   DoubleToIreg(MB_STS_PID_02_OUTPUT, Output_02);
   //mb_rtu.Ireg(MB_NUMBER_OF_SCHEDULES, NUMBER_OF_SCHEDULES); // written once in setup
   //mb_rtu.Ireg(MB_NUMBER_OF_SEGMENTS, NUMBER_OF_SEGMENTS); // written once in setup
-  mb_rtu.Ireg(MB_STS_SEGMENT_STATE, Schedules[0].Segments[SegmentIndex].State );
+  mb_rtu.Ireg(MB_STS_SEGMENT_STATE, LoadedSchedule.Segments[SegmentIndex].State );
   int j = 0;
   for (int i=0; i<sizeof(Schedules[ui_SelectedSchedule].Segments[SegmentIndex].Name);i=i+2) {
     charAsUnit16 temp;
@@ -373,7 +383,7 @@ void handleModbus() {
   ui_StopProfile = mb_rtu.Coil(MB_CMD_STOP_PROFILE);
   ui_Segment_HoldRelease = mb_rtu.Coil(MB_CMD_HOLD_RELEASE);
   ui_ThermalRunawayOverride = mb_rtu.Coil(MB_CMD_THERM_OVERRIDE);
-  //????? = mb_rtu.Coil(MB_CMD_WRITE_EEPROM);
+  ui_WriteEeprom = mb_rtu.Coil(MB_CMD_WRITE_EEPROM);
   Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Enabled = mb_rtu.Coil(MB_SCH_SEG_ENABLED);
   Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].HoldEnabled = mb_rtu.Coil(MB_SCH_SEG_HOLD_EN);
   /* holding registers (RW) */
@@ -395,7 +405,7 @@ void handleModbus() {
     a++;
   }
   int b = 0;
-  for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name);i=i+2) {
+  for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name)-1;i=i+2) {
     charAsUnit16 temp;
     temp.reg = mb_rtu.Hreg(MB_SCH_SEG_NAME + b);
     Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[i] = temp.c[0];
@@ -408,6 +418,12 @@ void handleModbus() {
   ui_ChangeSelectedSegment = mb_rtu.Hreg(MB_SCH_SEG_SELECTED);
   ui_ChangeSelectedSchedule = mb_rtu.Hreg(MB_SCH_SELECTED);
 
+  // could use callback here....
+  if (ui_WriteEeprom) {
+    ui_WriteEeprom = false;
+    writeScheduleToEeeprom();
+    ui_EepromWritten = true;
+  }
   // reset the saved indicator on the hmi
   if (millis() - EepromWritten_Timer > 3000 || !ui_EepromWritten) {
     EepromWritten_Timer = millis();
@@ -562,7 +578,7 @@ void handleProfileSequence(){
       break;
       
     case SEGMENT_STATE_START: /* first segment start */
-      if (Schedules[0].Segments[SegmentIndex].Enabled) {
+      if (LoadedSchedule.Segments[SegmentIndex].Enabled) {
         Segment_CheckDirection          = true;
         Segment_WillIncrement_Ch0       = false;
         Segment_WillIncrement_Ch1       = false;
@@ -586,7 +602,7 @@ void handleProfileSequence(){
       break;
       
     case SEGMENT_STATE_SOAK: /* first segment soak at temp */
-      SOAK_TIMER_PERIOD = Schedules[0].Segments[SegmentIndex].SoakTime;
+      SOAK_TIMER_PERIOD = LoadedSchedule.Segments[SegmentIndex].SoakTime;
       SoakTimerEnabled = true;
       break;
       
@@ -595,19 +611,19 @@ void handleProfileSequence(){
       break;
   }
   
-  Schedules[0].Segments[SegmentIndex].State = ProfileSequence;
+  LoadedSchedule.Segments[SegmentIndex].State = ProfileSequence;
   
   // 
   // check the direction the temp needs to go to get to setpoint
   //
   if (Segment_CheckDirection) {
     Segment_CheckDirection = false;
-    if (temperature_ch0 < Schedules[0].Segments[SegmentIndex].Setpoint) {
+    if (temperature_ch0 < LoadedSchedule.Segments[SegmentIndex].Setpoint) {
       Segment_WillIncrement_Ch0 = true;
     } else {
       Segment_WillIncrement_Ch0 = false;
     }
-    if (temperature_ch1 < Schedules[0].Segments[SegmentIndex].Setpoint) {
+    if (temperature_ch1 < LoadedSchedule.Segments[SegmentIndex].Setpoint) {
       Segment_WillIncrement_Ch1 = true;
     } else {
       Segment_WillIncrement_Ch1 = false;
@@ -624,37 +640,37 @@ void handleProfileSequence(){
       RampTimerEnabled = false;
       
       if (Segment_WillIncrement_Ch0) {
-        if (temperature_ch0 >= Schedules[0].Segments[SegmentIndex].Setpoint) {
+        if (temperature_ch0 >= LoadedSchedule.Segments[SegmentIndex].Setpoint) {
           Segment_AtTemp_Ch0 = true;
         } else {
-          if (Setpoint_ch0 < Schedules[0].Segments[SegmentIndex].Setpoint) {
-            Setpoint_ch0 = Setpoint_ch0 + RampChange(Schedules[0].Segments[SegmentIndex].RampRate,RampTimer_ElapsedTime);
+          if (Setpoint_ch0 < LoadedSchedule.Segments[SegmentIndex].Setpoint) {
+            Setpoint_ch0 = Setpoint_ch0 + RampChange(LoadedSchedule.Segments[SegmentIndex].RampRate,RampTimer_ElapsedTime);
           }
         }
       } else {
-        if (temperature_ch0 <= Schedules[0].Segments[SegmentIndex].Setpoint) {
+        if (temperature_ch0 <= LoadedSchedule.Segments[SegmentIndex].Setpoint) {
           Segment_AtTemp_Ch0 = true;
         } else {
-          if (Setpoint_ch0 > Schedules[0].Segments[SegmentIndex].Setpoint) {
-            Setpoint_ch0 = Setpoint_ch0 - RampChange(Schedules[0].Segments[SegmentIndex].RampRate,RampTimer_ElapsedTime);
+          if (Setpoint_ch0 > LoadedSchedule.Segments[SegmentIndex].Setpoint) {
+            Setpoint_ch0 = Setpoint_ch0 - RampChange(LoadedSchedule.Segments[SegmentIndex].RampRate,RampTimer_ElapsedTime);
           }
         }
       }
       
       if (Segment_WillIncrement_Ch1) {
-        if (temperature_ch1 >= Schedules[0].Segments[SegmentIndex].Setpoint) {
+        if (temperature_ch1 >= LoadedSchedule.Segments[SegmentIndex].Setpoint) {
           Segment_AtTemp_Ch1 = true;
         } else {
-          if (Setpoint_ch1 < Schedules[0].Segments[SegmentIndex].Setpoint) {
-            Setpoint_ch1 = Setpoint_ch1 + RampChange(Schedules[0].Segments[SegmentIndex].RampRate,RampTimer_ElapsedTime);
+          if (Setpoint_ch1 < LoadedSchedule.Segments[SegmentIndex].Setpoint) {
+            Setpoint_ch1 = Setpoint_ch1 + RampChange(LoadedSchedule.Segments[SegmentIndex].RampRate,RampTimer_ElapsedTime);
           }
         }
       } else {
-        if (temperature_ch1 <= Schedules[0].Segments[SegmentIndex].Setpoint) {
+        if (temperature_ch1 <= LoadedSchedule.Segments[SegmentIndex].Setpoint) {
           Segment_AtTemp_Ch1 = true;
         } else {
-          if (Setpoint_ch1 > Schedules[0].Segments[SegmentIndex].Setpoint) {
-            Setpoint_ch1 = Setpoint_ch1 - RampChange(Schedules[0].Segments[SegmentIndex].RampRate,RampTimer_ElapsedTime);
+          if (Setpoint_ch1 > LoadedSchedule.Segments[SegmentIndex].Setpoint) {
+            Setpoint_ch1 = Setpoint_ch1 - RampChange(LoadedSchedule.Segments[SegmentIndex].RampRate,RampTimer_ElapsedTime);
           }
         }
       } 
@@ -664,8 +680,8 @@ void handleProfileSequence(){
   if ((Segment_AtTemp_Ch0 == true) && (Segment_AtTemp_Ch1 == true)) {
     Segment_AtTemp_Ch0 = false;
     Segment_AtTemp_Ch1 = false;
-    Setpoint_ch0 = Schedules[0].Segments[SegmentIndex].Setpoint;
-    Setpoint_ch1 = Schedules[0].Segments[SegmentIndex].Setpoint;
+    Setpoint_ch0 = LoadedSchedule.Segments[SegmentIndex].Setpoint;
+    Setpoint_ch1 = LoadedSchedule.Segments[SegmentIndex].Setpoint;
     ProfileSequence = SEGMENT_STATE_SOAK;
   }
 
@@ -676,9 +692,9 @@ void handleProfileSequence(){
   unsigned long SoakTimer_ElapsedTime = millis() - SoakTimer;
   if ((SoakTimer_ElapsedTime > SOAK_TIMER_PERIOD*60*1000) || !SoakTimerEnabled) { // in minutes - convert to milli
     if (SoakTimerEnabled) {
-      if (Schedules[0].Segments[SegmentIndex].HoldEnabled) {
+      if (LoadedSchedule.Segments[SegmentIndex].HoldEnabled) {
         ui_Segment_HoldReleaseRequest = true;
-        Schedules[0].Segments[SegmentIndex].State = SEGMENT_STATE_HOLD;
+        LoadedSchedule.Segments[SegmentIndex].State = SEGMENT_STATE_HOLD;
         if (ui_Segment_HoldRelease) {
           ui_Segment_HoldRelease = false;
           ui_Segment_HoldReleaseRequest = false;
@@ -734,7 +750,7 @@ void handleProfileSequence(){
       // calculate time remaining ch0
       double dbl_hours_ch0, dbl_minutes_ch0, dbl_seconds_ch0, dbl_milli_ch0;
       if (MeasuredRatePerHour_ch0 > 0.0) {
-        double temperatureDifference = fabs(Schedules[0].Segments[SegmentIndex].Setpoint - temperature_ch0);
+        double temperatureDifference = fabs(LoadedSchedule.Segments[SegmentIndex].Setpoint - temperature_ch0);
         dbl_hours_ch0 = temperatureDifference / MeasuredRatePerHour_ch0;
       } else {
         dbl_hours_ch0 = 0.0;
@@ -742,7 +758,7 @@ void handleProfileSequence(){
       // calculate time remaining ch1
       double dbl_hours_ch1, dbl_minutes_ch1, dbl_seconds_ch1, dbl_milli_ch1;
       if (MeasuredRatePerHour_ch1 > 0.0) {
-        double temperatureDifference = fabs(Schedules[0].Segments[SegmentIndex].Setpoint - temperature_ch1);
+        double temperatureDifference = fabs(LoadedSchedule.Segments[SegmentIndex].Setpoint - temperature_ch1);
         dbl_hours_ch1 = temperatureDifference / MeasuredRatePerHour_ch1;
       } else {
         dbl_hours_ch1 = 0.0;
@@ -766,7 +782,7 @@ void handleProfileSequence(){
           dbl_seconds = 0.0;
           dbl_milli = 0.0;
       } else {
-        dbl_hours = Schedules[0].Segments[SegmentIndex].SoakTime/60.0 - ((((double)SoakTimer_ElapsedTime/1000.0)/60.0)/60.0);
+        dbl_hours = LoadedSchedule.Segments[SegmentIndex].SoakTime/60.0 - ((((double)SoakTimer_ElapsedTime/1000.0)/60.0)/60.0);
         dbl_minutes = (dbl_hours - (uint16_t)dbl_hours)*60.0;
         dbl_seconds = (dbl_minutes - (uint16_t)dbl_minutes)*60.0;
         dbl_milli = (dbl_seconds - (uint16_t)dbl_seconds)*1000;
@@ -788,7 +804,7 @@ void handleProfileSequence(){
           ui_Setpoint = Setpoint_ch1;
         }
       } else {
-        ui_Setpoint = Schedules[0].Segments[SegmentIndex].Setpoint;
+        ui_Setpoint = LoadedSchedule.Segments[SegmentIndex].Setpoint;
       }
       break;
     case MANUAL_MODE:
@@ -820,7 +836,7 @@ void setSchedule () {
 
   // if selected schedule changes
   if (ui_SelectedSchedule != ui_SelectedScheduleLast) {
-    if (ProfileSequence == SEGMENT_STATE_IDLE && ui_SelectedSchedule < NUMBER_OF_SCHEDULES){
+    if (ProfileSequence == SEGMENT_STATE_IDLE && ui_SelectedSchedule < NUMBER_OF_SCHEDULES && ui_SelectedSchedule >= 0){
       ui_SelectedScheduleLast = ui_SelectedSchedule;
       Schedules[ui_SelectedSchedule].CMD_Select = true;
     } else {
@@ -829,7 +845,7 @@ void setSchedule () {
   }
   
   if (ProfileSequence == SEGMENT_STATE_IDLE) {
-    for (int i=1;i<NUMBER_OF_SCHEDULES;i++) { // skip 0 index
+    for (int i=0;i<NUMBER_OF_SCHEDULES;i++) {
       if (Schedules[i].CMD_Select){
         idxSelectedSchedule = i;
         setSchedule = true;
@@ -837,7 +853,7 @@ void setSchedule () {
     }
     if (setSchedule) {
       setSchedule = false;
-      for (int i=1;i<NUMBER_OF_SCHEDULES;i++) { // skip 0 index
+      for (int i=0;i<NUMBER_OF_SCHEDULES;i++) {
         Schedules[i].CMD_Select = false;
         if (i != idxSelectedSchedule) {
           Schedules[i].STS_Select = false;
@@ -848,18 +864,18 @@ void setSchedule () {
 
       /* copy schedule to 0 index */
       for (int i=0; i<sizeof(Schedules[idxSelectedSchedule].Name);i++) {
-         Schedules[0].Name[i] = Schedules[idxSelectedSchedule].Name[i];
+         LoadedSchedule.Name[i] = Schedules[idxSelectedSchedule].Name[i];
       }
       for (int i=0;i<NUMBER_OF_SEGMENTS;i++) {
         for (int j=0; j<sizeof(Schedules[idxSelectedSchedule].Segments[i].Name);j++) {
-           Schedules[0].Segments[i].Name[j] = Schedules[idxSelectedSchedule].Segments[i].Name[j];
+           LoadedSchedule.Segments[i].Name[j] = Schedules[idxSelectedSchedule].Segments[i].Name[j];
         }
-        Schedules[0].Segments[i].Enabled = Schedules[idxSelectedSchedule].Segments[i].Enabled;
-        Schedules[0].Segments[i].HoldEnabled = Schedules[idxSelectedSchedule].Segments[i].HoldEnabled;
-        Schedules[0].Segments[i].Setpoint = Schedules[idxSelectedSchedule].Segments[i].Setpoint;
-        Schedules[0].Segments[i].RampRate = Schedules[idxSelectedSchedule].Segments[i].RampRate;
-        Schedules[0].Segments[i].SoakTime = Schedules[idxSelectedSchedule].Segments[i].SoakTime;
-        Schedules[0].Segments[i].State = Schedules[idxSelectedSchedule].Segments[i].State;
+        LoadedSchedule.Segments[i].Enabled = Schedules[idxSelectedSchedule].Segments[i].Enabled;
+        LoadedSchedule.Segments[i].HoldEnabled = Schedules[idxSelectedSchedule].Segments[i].HoldEnabled;
+        LoadedSchedule.Segments[i].Setpoint = Schedules[idxSelectedSchedule].Segments[i].Setpoint;
+        LoadedSchedule.Segments[i].RampRate = Schedules[idxSelectedSchedule].Segments[i].RampRate;
+        LoadedSchedule.Segments[i].SoakTime = Schedules[idxSelectedSchedule].Segments[i].SoakTime;
+        LoadedSchedule.Segments[i].State = Schedules[idxSelectedSchedule].Segments[i].State;
       }
     }
   }
@@ -898,6 +914,45 @@ void makeInitialized(){
 }
 
 void applyDefaultScheduleSettings() {
+  char strEmpty[MAX_STRING_LENGTH] = {'\0'};
+  char strSchedule[] = {"Schedule"};
+  char strSegment[] = {"Segment"};
+  
+  for (int i=0; i<NUMBER_OF_SCHEDULES; i++) {
+    /* cmd select */
+    Schedules[i].CMD_Select = false;
+    /* sts select */
+    Schedules[i].STS_Select = false;
+    /* schedule name */
+    for (int j=0; j<sizeof(Schedules[i].Name); j++) {
+     Schedules[i].Name[j] = strEmpty[j];
+    }
+    for (int a=0; a<sizeof(strSchedule) && a<MAX_STRING_LENGTH; a++) {
+     Schedules[i].Name[a] = strSchedule[a];
+    }
+    for (int k=0; k<NUMBER_OF_SEGMENTS; k++) {
+      /* segment name */
+      for (int x=0; x<sizeof(Schedules[i].Segments[k].Name); x++) {
+        Schedules[i].Segments[k].Name[x] = strEmpty[x];
+      }
+      for (int e=0; e<sizeof(strSegment) && e<MAX_STRING_LENGTH; e++) {
+       Schedules[i].Segments[k].Name[e] = strSegment[e];
+      }
+      /* segment enabled */
+      Schedules[i].Segments[k].Enabled = true;
+      /* hold enabled */
+      Schedules[i].Segments[k].HoldEnabled = false;
+      /* setpoint */
+      Schedules[i].Segments[k].Setpoint = 100.0;
+      /* ramp rate */
+      Schedules[i].Segments[k].RampRate = 200;
+      /* soak time */
+      Schedules[i].Segments[k].SoakTime = 1;
+      /* state */
+      Schedules[i].Segments[k].State = SEGMENT_STATE_IDLE;
+    }
+  }
+  /*
   // cmd select
   Schedules[1].CMD_Select = true;
   Schedules[2].CMD_Select = false;
@@ -911,7 +966,7 @@ void applyDefaultScheduleSettings() {
   // name
   char strTemp_Test[] = {"Test"};
   for (int i=0; i<sizeof(strTemp_Test);i++) {
-     Schedules[0].Name[i] = strTemp_Test[i];
+     LoadedSchedule.Name[i] = strTemp_Test[i];
   }
   char strTemp1_1_1[] = {"Bisque 1"};
   for (int i=0; i<sizeof(strTemp1_1_1);i++) {
@@ -930,7 +985,7 @@ void applyDefaultScheduleSettings() {
      Schedules[4].Name[i] = strTemp1_1_4[i];
   }
   // segments
-  for (int j=1; j<NUMBER_OF_SCHEDULES; j++) {
+  for (int j=0; j<NUMBER_OF_SCHEDULES; j++) {
     char strTemp1_1[] = {"Candle"};
     for (int i=0; i<sizeof(strTemp1_1);i++) {
        Schedules[j].Segments[0].Name[i] = strTemp1_1[i];
@@ -1007,7 +1062,7 @@ void applyDefaultScheduleSettings() {
       Schedules[j].Segments[k].State = SEGMENT_STATE_IDLE;
     }
   }
-
+  */
   writeScheduleToEeeprom();
 }
 
@@ -1016,10 +1071,16 @@ void writeScheduleToEeeprom() {
   int address = EEPROM_SCH_START_ADDR;
 
   for (int i=0; i<NUMBER_OF_SCHEDULES; i++) {
+    /* cmd select */
+    EEPROM.put(address, Schedules[i].CMD_Select);
+    address = address + sizeof(Schedules[i].CMD_Select);
+    /* sts select */
+    EEPROM.put(address, Schedules[i].STS_Select);
+    address = address + sizeof(Schedules[i].STS_Select);
     /* schedule name */
     for (int j=0; j<sizeof(Schedules[i].Name); j++) {
       EEPROM.put(address, Schedules[i].Name[j]);
-      address = address + sizeof(address, Schedules[i].Name[j]);
+      address = address + sizeof(Schedules[i].Name[j]);
     }
     for (int k=0; k<NUMBER_OF_SEGMENTS; k++) {
       /* segment name */
@@ -1029,23 +1090,27 @@ void writeScheduleToEeeprom() {
       }
       /* segment enabled */
       EEPROM.put(address, Schedules[i].Segments[k].Enabled);
-      address = address + sizeof(address, Schedules[i].Segments[k].Enabled);
+      address = address + sizeof(Schedules[i].Segments[k].Enabled);
       /* hold enabled */
       EEPROM.put(address, Schedules[i].Segments[k].HoldEnabled);
-      address = address + sizeof(address, Schedules[i].Segments[k].HoldEnabled);
+      address = address + sizeof(Schedules[i].Segments[k].HoldEnabled);
       /* setpoint */
       EEPROM.put(address, Schedules[i].Segments[k].Setpoint);
-      address = address + sizeof(address, Schedules[i].Segments[k].Setpoint);
+      address = address + sizeof(Schedules[i].Segments[k].Setpoint);
       /* ramp rate */
       EEPROM.put(address, Schedules[i].Segments[k].RampRate);
-      address = address + sizeof(address, Schedules[i].Segments[k].RampRate);
+      address = address + sizeof(Schedules[i].Segments[k].RampRate);
       /* soak time */
       EEPROM.put(address, Schedules[i].Segments[k].SoakTime);
-      address = address + sizeof(address, Schedules[i].Segments[k].SoakTime);
+      address = address + sizeof(Schedules[i].Segments[k].SoakTime);
+      /* state */
+      EEPROM.put(address, Schedules[i].Segments[k].State);
+      address = address + sizeof(Schedules[i].Segments[k].State);
     }
   }
   /* commit to simulated eeprom (flash) */
   EEPROM.commit();
+  //EEPROM.end(); // will also commit, but will release the RAM copy of EEPROM contents
 }
 
 void readScheduleFromEeeprom() {
@@ -1053,10 +1118,16 @@ void readScheduleFromEeeprom() {
   int address = EEPROM_SCH_START_ADDR;
 
   for (int i=0; i<NUMBER_OF_SCHEDULES; i++) {
+    /* cmd select */
+    EEPROM.get(address, Schedules[i].CMD_Select);
+    address = address + sizeof(Schedules[i].CMD_Select);
+    /* sts select */
+    EEPROM.get(address, Schedules[i].STS_Select);
+    address = address + sizeof(Schedules[i].STS_Select);
     /* schedule name */
     for (int j=0; j<sizeof(Schedules[i].Name); j++) {
       EEPROM.get(address, Schedules[i].Name[j]);
-      address = address + sizeof(address, Schedules[i].Name[j]);
+      address = address + sizeof(Schedules[i].Name[j]);
     }
     for (int k=0; k<NUMBER_OF_SEGMENTS; k++) {
       /* segment name */
@@ -1066,19 +1137,22 @@ void readScheduleFromEeeprom() {
       }
       /* segment enabled */
       EEPROM.get(address, Schedules[i].Segments[k].Enabled);
-      address = address + sizeof(address, Schedules[i].Segments[k].Enabled);
+      address = address + sizeof(Schedules[i].Segments[k].Enabled);
       /* hold enabled */
       EEPROM.get(address, Schedules[i].Segments[k].HoldEnabled);
-      address = address + sizeof(address, Schedules[i].Segments[k].HoldEnabled);
+      address = address + sizeof(Schedules[i].Segments[k].HoldEnabled);
       /* setpoint */
       EEPROM.get(address, Schedules[i].Segments[k].Setpoint);
-      address = address + sizeof(address, Schedules[i].Segments[k].Setpoint);
+      address = address + sizeof(Schedules[i].Segments[k].Setpoint);
       /* ramp rate */
       EEPROM.get(address, Schedules[i].Segments[k].RampRate);
-      address = address + sizeof(address, Schedules[i].Segments[k].RampRate);
+      address = address + sizeof(Schedules[i].Segments[k].RampRate);
       /* soak time */
       EEPROM.get(address, Schedules[i].Segments[k].SoakTime);
-      address = address + sizeof(address, Schedules[i].Segments[k].SoakTime);
+      address = address + sizeof(Schedules[i].Segments[k].SoakTime);
+      /* state */
+      EEPROM.get(address, Schedules[i].Segments[k].State);
+      address = address + sizeof(Schedules[i].Segments[k].State);
     }
   }
 }
@@ -1102,25 +1176,25 @@ void handleThermalRunaway() {
       break;
     case SEGMENT_STATE_RAMP:
       /* ch0 */
-      if ((MeasuredRatePerHour_ch0 > Schedules[0].Segments[SegmentIndex].RampRate + Tolerance_Rate) || 
-          (MeasuredRatePerHour_ch0 < Schedules[0].Segments[SegmentIndex].RampRate - Tolerance_Rate)) {
+      if ((MeasuredRatePerHour_ch0 > LoadedSchedule.Segments[SegmentIndex].RampRate + Tolerance_Rate) || 
+          (MeasuredRatePerHour_ch0 < LoadedSchedule.Segments[SegmentIndex].RampRate - Tolerance_Rate)) {
             RateDifferenceDetected = true;
           }
       /* ch1 */
-      if ((MeasuredRatePerHour_ch1 > Schedules[0].Segments[SegmentIndex].RampRate + Tolerance_Rate) || 
-          (MeasuredRatePerHour_ch1 < Schedules[0].Segments[SegmentIndex].RampRate - Tolerance_Rate)) {
+      if ((MeasuredRatePerHour_ch1 > LoadedSchedule.Segments[SegmentIndex].RampRate + Tolerance_Rate) || 
+          (MeasuredRatePerHour_ch1 < LoadedSchedule.Segments[SegmentIndex].RampRate - Tolerance_Rate)) {
             RateDifferenceDetected = true;
           }
       break;
     case SEGMENT_STATE_SOAK:
       /* ch0 */
-      if ((temperature_ch0 > Schedules[0].Segments[SegmentIndex].Setpoint + Tolerance_Temperature) || 
-          (temperature_ch0 < Schedules[0].Segments[SegmentIndex].Setpoint - Tolerance_Temperature)) {
+      if ((temperature_ch0 > LoadedSchedule.Segments[SegmentIndex].Setpoint + Tolerance_Temperature) || 
+          (temperature_ch0 < LoadedSchedule.Segments[SegmentIndex].Setpoint - Tolerance_Temperature)) {
             TemperatureDifferenceDetected = true;
           }
       /* ch1 */
-      if ((temperature_ch1 > Schedules[0].Segments[SegmentIndex].Setpoint + Tolerance_Temperature) || 
-          (temperature_ch1 < Schedules[0].Segments[SegmentIndex].Setpoint - Tolerance_Temperature)) {
+      if ((temperature_ch1 > LoadedSchedule.Segments[SegmentIndex].Setpoint + Tolerance_Temperature) || 
+          (temperature_ch1 < LoadedSchedule.Segments[SegmentIndex].Setpoint - Tolerance_Temperature)) {
             TemperatureDifferenceDetected = true;
           }
       break;
@@ -1164,7 +1238,7 @@ void handleMainContactor() {
 
 void setup() {
   
-  EEPROM.begin(512);  //Initialize EEPROM 
+  EEPROM.begin(2048);  // can be between 4 and 4096 - currently the schedules need about 1515 bytes
   /* check if this is a new device */
   checkInit();
   readScheduleFromEeeprom();
@@ -1222,7 +1296,7 @@ void setup() {
   int TryCount = 0;
   while (WiFi.waitForConnectResult() != WL_CONNECTED && TryCount < 3) {
     TryCount++;
-    //Serial.println("Connection Failed! Rebooting...");
+    Serial.println("Connection Failed! Retrying...");
     delay(5000);
     //ESP.restart();
   }
@@ -1313,7 +1387,7 @@ void setup() {
   
   //mb_rtu.onGetCoil(COIL_BASE, cbRead, LEN); // Add callback on Coils value get
   //mb_rtu.onSetCoil(MB_CMD_SELECT_SCHEDULE, cbSchedule);      // Add callback on Coil LED_COIL value set
-  mb_rtu.onSetCoil(MB_CMD_WRITE_EEPROM, cbWriteEeprom);
+  //mb_rtu.onSetCoil(MB_CMD_WRITE_EEPROM, cbWriteEeprom);
   
   /* add multiple
   bool addHreg(uint16_t offset, uint16_t value = 0, uint16_t numregs = 1);
@@ -1395,18 +1469,6 @@ void loop() {
   // handle OTA requests
   //
   ArduinoOTA.handle();
-    
-  //
-  // handle REST calls
-  //
-  //WiFiClient client = server.available();
-  //if (!client) {
-  //  return;
-  //}
-  //while(!client.available()){
-  //  delay(1);
-  //}
-  //rest.handle(client);
   
   yield();
 }
