@@ -17,7 +17,7 @@
 // sketch will write default settings if new build
 //const char version[] = "build "  __DATE__ " " __TIME__; 
 const char version[] = __DATE__ " " __TIME__; 
-const char Initialized[] = {"Initialized03"};
+const char Initialized[] = {"Initialized10"};
 
 #if !defined(ARRAY_SIZE)
     #define ARRAY_SIZE(x) (sizeof((x)) / sizeof((x)[0]))
@@ -56,7 +56,7 @@ const char Initialized[] = {"Initialized03"};
 #define MB_STS_SAFETY_OK          4
 #define MB_STS_IN_PROCESS         5
 #define MB_STS_THERMAL_RUNAWAY    6
-#define MB_STS_EEPROM_WRITTEN     50
+#define MB_STS_EEPROM_WRITTEN     7 //50
 /* holding registers (RW) 16 bit*/
 #define MB_MODE                   1
 #define MB_CMD_SELECTED_SCHEDULE  2
@@ -67,13 +67,13 @@ const char Initialized[] = {"Initialized03"};
 #define MB_PID_P_02               11
 #define MB_PID_I_02               13
 #define MB_PID_D_02               15
-#define MB_SCH_NAME               100
-#define MB_SCH_SEG_NAME           108
-#define MB_SCH_SEG_SETPOINT       116
-#define MB_SCH_SEG_RAMP_RATE      118
-#define MB_SCH_SEG_SOAK_TIME      119
-#define MB_SCH_SEG_SELECTED       120
-#define MB_SCH_SELECTED           121
+#define MB_SCH_NAME               17 //100
+#define MB_SCH_SEG_NAME           25 //108
+#define MB_SCH_SEG_SETPOINT       33 //116
+#define MB_SCH_SEG_RAMP_RATE      35 //118
+#define MB_SCH_SEG_SOAK_TIME      36 //119
+#define MB_SCH_SEG_SELECTED       37 //120
+#define MB_SCH_SELECTED           38 //121
 /* input registers (R) 16 bit*/
 #define MB_HEARTBEAT              1
 #define MB_STS_REMAINING_TIME_H   2
@@ -160,8 +160,9 @@ Adafruit_MAX31855 thermocouple_ch1(MAXCS_CH1);
 #define MAIN_CONTACTOR_OUTPUT     D4
 
 #define EEPROM_SCH_START_ADDR     100
+#define EEPROM_SIZE               2048 // // can be between 4 and 4096 -schedules take up around 1515 bytes when MAX_STRING_LENGTH=16, NUMBER_OF_SCHEDULES=5, and NUMBER_OF_SEGMENTS=10
 
-#define MAX_STRING_LENGTH         15
+#define MAX_STRING_LENGTH         16 // space is wasted when this is an odd number because a modbus register is 2 bytes and fits 2 characters
 
 //
 // init variables
@@ -328,15 +329,23 @@ void handleModbus() {
   for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Name);i=i+2) {
     charAsUnit16 temp;
     temp.c[0] = Schedules[ui_ChangeSelectedSchedule].Name[i];
-    temp.c[1] = Schedules[ui_ChangeSelectedSchedule].Name[i + 1];
+    if (i+1<sizeof(Schedules[ui_ChangeSelectedSchedule].Name)) { // fix struct overwrite issue when MAX_STRING_LENGTH is odd
+      temp.c[1] = Schedules[ui_ChangeSelectedSchedule].Name[i + 1];
+    } else {
+      temp.c[1] = ' ';
+    }
     mb_rtu.Hreg(MB_SCH_NAME + y, temp.reg);
     y++;
   }
   int x = 0;
-  for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name)-1;i=i+2) {
+  for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name);i=i+2) {
     charAsUnit16 temp;
     temp.c[0] = Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[i];
-    temp.c[1] = Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[i + 1];
+    if (i+1<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name)) { // fix struct overwrite issue when MAX_STRING_LENGTH is odd
+      temp.c[1] = Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[i + 1];
+    } else {
+      temp.c[1] = ' ';
+    }
     mb_rtu.Hreg(MB_SCH_SEG_NAME + x, temp.reg);
     x++;
   }
@@ -361,7 +370,11 @@ void handleModbus() {
   for (int i=0; i<sizeof(Schedules[ui_SelectedSchedule].Segments[SegmentIndex].Name);i=i+2) {
     charAsUnit16 temp;
     temp.c[0] = Schedules[ui_SelectedSchedule].Segments[SegmentIndex].Name[i];
-    temp.c[1] = Schedules[ui_SelectedSchedule].Segments[SegmentIndex].Name[i + 1];
+    if (i+1<sizeof(Schedules[ui_SelectedSchedule].Segments[SegmentIndex].Name)) { // fix struct overwrite issue when MAX_STRING_LENGTH is odd
+      temp.c[1] = Schedules[ui_SelectedSchedule].Segments[SegmentIndex].Name[i + 1];
+    } else {
+      temp.c[1] = ' ';
+    }
     mb_rtu.Ireg(MB_STS_SEGMENT_NAME + j, temp.reg);
     j++;
   }
@@ -369,7 +382,11 @@ void handleModbus() {
   for (int i=0; i<sizeof(Schedules[ui_SelectedSchedule].Name);i=i+2) {
     charAsUnit16 temp;
     temp.c[0] = Schedules[ui_SelectedSchedule].Name[i];
-    temp.c[1] = Schedules[ui_SelectedSchedule].Name[i+1];
+    if (i+1<sizeof(Schedules[ui_SelectedSchedule].Name)) { // fix struct overwrite issue when MAX_STRING_LENGTH is odd
+      temp.c[1] = Schedules[ui_SelectedSchedule].Name[i+1];
+    } else {
+      temp.c[1] = ' ';
+    }
     mb_rtu.Ireg(MB_STS_SCHEDULE_NAME + k, temp.reg);
     k++;
   }
@@ -401,15 +418,19 @@ void handleModbus() {
     charAsUnit16 temp;
     temp.reg = mb_rtu.Hreg(MB_SCH_NAME + a);
     Schedules[ui_ChangeSelectedSchedule].Name[i] = temp.c[0];
-    Schedules[ui_ChangeSelectedSchedule].Name[i + 1] = temp.c[1];
+    if (i<sizeof(Schedules[ui_ChangeSelectedSchedule].Name)) { // fix struct overwrite issue when MAX_STRING_LENGTH is odd
+      Schedules[ui_ChangeSelectedSchedule].Name[i + 1] = temp.c[1];
+    }
     a++;
   }
   int b = 0;
-  for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name)-1;i=i+2) {
+  for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name);i=i+2) {
     charAsUnit16 temp;
     temp.reg = mb_rtu.Hreg(MB_SCH_SEG_NAME + b);
     Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[i] = temp.c[0];
-    Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[i + 1] = temp.c[1];
+    if (i+1<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name)) { // fix struct overwrite issue when MAX_STRING_LENGTH is odd
+      Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[i + 1] = temp.c[1];
+    }
     b++;
   }
   Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Setpoint = HregToDouble(MB_SCH_SEG_SETPOINT);
@@ -1238,7 +1259,7 @@ void handleMainContactor() {
 
 void setup() {
   
-  EEPROM.begin(2048);  // can be between 4 and 4096 - currently the schedules need about 1515 bytes
+  EEPROM.begin(EEPROM_SIZE);
   /* check if this is a new device */
   checkInit();
   readScheduleFromEeeprom();
