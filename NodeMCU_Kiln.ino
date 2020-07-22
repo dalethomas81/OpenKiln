@@ -7,8 +7,8 @@
     IwIP Variant: v2 Lower Memory
     VTables: Flash
     CPU Frequency: 160MHz
-    Upload Speed: 115200¿
-    Erase Flash: All Flash Contents
+    Upload Speed: 115200
+    Erase Flash: Only Sketch (if using emulated EEPROM 'All Flash Contents' will overwrite it!)
     Builtin LED: 2
 *********/
 
@@ -926,6 +926,7 @@ void setSchedule () {
 }
 
 void checkInit(){
+  Serial.println();
   Serial.println(F("Checking initialization..."));
   bool writeDefaults = false;
   for (byte i=0;i<sizeof(Initialized)-1;i++){
@@ -954,6 +955,7 @@ void makeInitialized(){
   /*for (byte i=0;i<sizeof(version)-1;i++){
     EEPROM.write(i, version[i]);
   }*/
+  EEPROM.commit();
 }
 
 void applyDefaultScheduleSettings() {
@@ -1170,6 +1172,7 @@ void handleMainContactor() {
 }
 
 void setup() {
+  Serial.begin(115200, SERIAL_8N1);
   
   EEPROM.begin(EEPROM_SIZE);
   /* check if this is a new device */
@@ -1229,7 +1232,7 @@ void setup() {
   int TryCount = 0;
   while (WiFi.waitForConnectResult() != WL_CONNECTED && TryCount < 3) {
     TryCount++;
-    Serial.println("Connection Failed! Retrying...");
+    Serial.println("Wifi Connection Failed! Retrying...");
     delay(5000);
     //ESP.restart();
   }
@@ -1265,7 +1268,7 @@ void setup() {
   //
   // setup modbus
   //
-  Serial.begin(115200, SERIAL_8N1);
+  //Serial.begin(115200, SERIAL_8N1);
   mb_ip.server();   //Start Modbus IP
   mb_rtu.begin(&Serial);
   mb_rtu.slave(SLAVE_ID);
