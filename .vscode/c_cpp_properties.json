@@ -8,7 +8,9 @@
                 "C:\\Users\\thomad05\\Documents\\Arduino\\libraries\\**",
                 "/Users/Dale/Library/Arduino15/packages/esp8266/hardware/esp8266/2.7.2/**",
                 "/Users/Dale/Library/Arduino15/packages/esp8266/tools/**",
-                "/Users/Dale/Documents/Arduino/libraries/**"
+                "/Users/Dale/Documents/Arduino/libraries/**",
+                "C:\\Users\\dale\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.2\\**",
+                "C:\\Users\\dale\\AppData\\Local\\Arduino15\\packages\\esp8266\\tools\\**"
             ],
             "forcedInclude": [],
             "intelliSenseMode": "msvc-x64",
