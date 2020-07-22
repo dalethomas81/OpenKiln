@@ -211,7 +211,7 @@ double MeasuredRatePerHour_ch0, MeasuredRatePerHour_ch1;
 /* thermal runaway */
 bool ThermalRunawayDetected = false, ui_ThermalRunawayOverride = false;
 /* user interface */
-uint16_t Mode = AUTOMATIC_MODE;
+uint16_t Mode = AUTOMATIC_MODE,  Mode_Last = AUTOMATIC_MODE;
 bool ui_StartProfile = false;
 bool ui_StopProfile = false;
 bool ui_Segment_HoldReleaseRequest = false;
@@ -439,13 +439,24 @@ void handleModbus() {
   ui_ChangeSelectedSegment = mb_rtu.Hreg(MB_SCH_SEG_SELECTED);
   ui_ChangeSelectedSchedule = mb_rtu.Hreg(MB_SCH_SELECTED);
 
+  /*************** should create a new routine for things below this line ****************/
+  // do not let user change modes while running
+  if (Mode != Mode_Last) {
+    if (ProfileSequence != SEGMENT_STATE_IDLE) {
+      Mode = Mode_Last;
+    } else {
+      Mode_Last = Mode;
+    }
+  }
+
   // could use callback here....
   if (ui_WriteEeprom) {
     ui_WriteEeprom = false;
     writeScheduleToEeeprom();
     ui_EepromWritten = true;
+    ui_SelectSchedule = true; // loaded schedule may have changed - go ahead and reload it
   }
-  // reset the saved indicator on the hmi
+  // reset the eeprom saved indicator on the hmi
   if (millis() - EepromWritten_Timer > 3000 || !ui_EepromWritten) {
     EepromWritten_Timer = millis();
     if (ui_EepromWritten) ui_EepromWritten = false;
@@ -582,9 +593,9 @@ void handleProfileSequence(){
       if (Safety_Ok && ui_StartProfile == true && 
           (Mode == AUTOMATIC_MODE || Mode == SIMULATE_MODE) && 
           !ThermalRunawayDetected) {
-        SegmentIndex = 0;
         ProfileSequence = SEGMENT_STATE_INIT;
       }
+      SegmentIndex = 0;
       ui_StartProfile = false;
       break;
       
@@ -609,10 +620,9 @@ void handleProfileSequence(){
         ui_Segment_HoldRelease          = false;
         ProfileSequence = SEGMENT_STATE_RAMP;
       } else {
-        if (SegmentIndex < NUMBER_OF_SEGMENTS) {
+        if (SegmentIndex < NUMBER_OF_SEGMENTS - 1) {
           SegmentIndex++;
         } else {
-          SegmentIndex = 0;
           ProfileSequence = SEGMENT_STATE_IDLE;
         }
       }
@@ -720,16 +730,19 @@ void handleProfileSequence(){
           ui_Segment_HoldRelease = false;
           ui_Segment_HoldReleaseRequest = false;
           SoakTimerEnabled = false;
-          SegmentIndex++;
-          ProfileSequence = SEGMENT_STATE_START;
+          if (SegmentIndex < NUMBER_OF_SEGMENTS - 1) {
+            SegmentIndex++;
+            ProfileSequence = SEGMENT_STATE_START;
+          } else {
+            ProfileSequence = SEGMENT_STATE_IDLE;
+          }
         }
       } else {
         SoakTimerEnabled = false;
-        if (SegmentIndex < NUMBER_OF_SEGMENTS) {
+        if (SegmentIndex < NUMBER_OF_SEGMENTS - 1) {
           SegmentIndex++;
           ProfileSequence = SEGMENT_STATE_START;
         } else {
-          SegmentIndex = 0;
           ProfileSequence = SEGMENT_STATE_IDLE;
         }
       }
@@ -833,7 +846,16 @@ void handleProfileSequence(){
       Setpoint_ch1 = ui_Setpoint;
       break;
     case SIMULATE_MODE:
-      ui_Setpoint = Setpoint_ch0;
+      if (ProfileSequence == SEGMENT_STATE_IDLE) {
+        // just display which is greater. should both be 0.0
+        if (Setpoint_ch0 > Setpoint_ch1) {
+          ui_Setpoint = Setpoint_ch0;
+        } else {
+          ui_Setpoint = Setpoint_ch1;
+        }
+      } else {
+        ui_Setpoint = LoadedSchedule.Segments[SegmentIndex].Setpoint;
+      }
       break;
     default:
       break;
@@ -904,7 +926,7 @@ void setSchedule () {
 }
 
 void checkInit(){
-  //Serial.println(F("Checking initialization..."));
+  Serial.println(F("Checking initialization..."));
   bool writeDefaults = false;
   for (byte i=0;i<sizeof(Initialized)-1;i++){
     if (Initialized[i] != EEPROM.read(i)) {
@@ -925,7 +947,7 @@ void checkInit(){
 }
 
 void makeInitialized(){
-  //Serial.println(F("Initializing..."));
+  Serial.println(F("Initializing board..."));
   for (byte i=0;i<sizeof(Initialized)-1;i++){
     EEPROM.write(i, Initialized[i]);
   }
@@ -935,6 +957,7 @@ void makeInitialized(){
 }
 
 void applyDefaultScheduleSettings() {
+  Serial.println(F("Applying default schedule settings..."));
   char strEmpty[MAX_STRING_LENGTH] = {'\0'};
   char strSchedule[] = {"Schedule"};
   char strSegment[] = {"Segment"};
@@ -973,122 +996,11 @@ void applyDefaultScheduleSettings() {
       Schedules[i].Segments[k].State = SEGMENT_STATE_IDLE;
     }
   }
-  /*
-  // cmd select
-  Schedules[1].CMD_Select = true;
-  Schedules[2].CMD_Select = false;
-  Schedules[3].CMD_Select = false;
-  Schedules[4].CMD_Select = false;
-  // sts select
-  Schedules[1].STS_Select = false;
-  Schedules[2].STS_Select = false;
-  Schedules[3].STS_Select = false;
-  Schedules[4].STS_Select = false;
-  // name
-  char strTemp_Test[] = {"Test"};
-  for (int i=0; i<sizeof(strTemp_Test);i++) {
-     LoadedSchedule.Name[i] = strTemp_Test[i];
-  }
-  char strTemp1_1_1[] = {"Bisque 1"};
-  for (int i=0; i<sizeof(strTemp1_1_1);i++) {
-     Schedules[1].Name[i] = strTemp1_1_1[i];
-  }
-  char strTemp1_1_2[] = {"Bisque 2"};
-  for (int i=0; i<sizeof(strTemp1_1_2);i++) {
-     Schedules[2].Name[i] = strTemp1_1_2[i];
-  }
-  char strTemp1_1_3[] = {"Glaze 1"};
-  for (int i=0; i<sizeof(strTemp1_1_3);i++) {
-     Schedules[3].Name[i] = strTemp1_1_3[i];
-  }
-  char strTemp1_1_4[] = {"Glaze 2"};
-  for (int i=0; i<sizeof(strTemp1_1_4);i++) {
-     Schedules[4].Name[i] = strTemp1_1_4[i];
-  }
-  // segments
-  for (int j=0; j<NUMBER_OF_SCHEDULES; j++) {
-    char strTemp1_1[] = {"Candle"};
-    for (int i=0; i<sizeof(strTemp1_1);i++) {
-       Schedules[j].Segments[0].Name[i] = strTemp1_1[i];
-    }
-    char strTemp1_2[] = {"Work Temp 1"};
-    for (int i=0; i<sizeof(strTemp1_2);i++) {
-       Schedules[j].Segments[1].Name[i] = strTemp1_2[i];
-    }
-    char strTemp1_3[] = {"Cool Down 1"};
-    for (int i=0; i<sizeof(strTemp1_3);i++) {
-       Schedules[j].Segments[2].Name[i] = strTemp1_3[i];
-    }
-    char strTemp1_4[] = {"Work Temp 2"};
-    for (int i=0; i<sizeof(strTemp1_4);i++) {
-       Schedules[j].Segments[3].Name[i] = strTemp1_4[i];
-    }
-    char strTemp1_5[] = {"Cool Down 2"};
-    for (int i=0; i<sizeof(strTemp1_5);i++) {
-       Schedules[j].Segments[4].Name[i] = strTemp1_5[i];
-    }
-    char strTemp1_6[] = {"Cool Down 6"};
-    for (int i=0; i<sizeof(strTemp1_6);i++) {
-       Schedules[j].Segments[5].Name[i] = strTemp1_6[i];
-    }
-    char strTemp1_7[] = {"Cool Down 7"};
-    for (int i=0; i<sizeof(strTemp1_7);i++) {
-       Schedules[j].Segments[6].Name[i] = strTemp1_7[i];
-    }
-    char strTemp1_8[] = {"Cool Down 8"};
-    for (int i=0; i<sizeof(strTemp1_8);i++) {
-       Schedules[j].Segments[7].Name[i] = strTemp1_8[i];
-    }
-    char strTemp1_9[] = {"Cool Down 9"};
-    for (int i=0; i<sizeof(strTemp1_9);i++) {
-       Schedules[j].Segments[8].Name[i] = strTemp1_9[i];
-    }
-    // enabled
-    for (int k=0;k<NUMBER_OF_SEGMENTS;k++) {
-      Schedules[j].Segments[k].Enabled = true;
-    }
-    // hold enabled
-    Schedules[j].Segments[0].HoldEnabled = true; // first segment is true
-    for (int k=1;k<NUMBER_OF_SEGMENTS;k++) {
-      Schedules[j].Segments[k].HoldEnabled = false;
-    }
-    // setpoint
-    Schedules[j].Segments[0].Setpoint = 80.0;
-    Schedules[j].Segments[1].Setpoint = 500.0;
-    Schedules[j].Segments[2].Setpoint = 200.0;
-    Schedules[j].Segments[3].Setpoint = 400.0;
-    Schedules[j].Segments[4].Setpoint = 5.0;
-    Schedules[j].Segments[5].Setpoint = 5.0;
-    Schedules[j].Segments[6].Setpoint = 5.0;
-    Schedules[j].Segments[7].Setpoint = 5.0;
-    Schedules[j].Segments[8].Setpoint = 5.0;
-    Schedules[j].Segments[9].Setpoint = 5.0;
-    // ramprate
-    Schedules[j].Segments[0].RampRate = 100;
-    Schedules[j].Segments[1].RampRate = 200;
-    Schedules[j].Segments[2].RampRate = 200;
-    Schedules[j].Segments[3].RampRate = 100;
-    Schedules[j].Segments[4].RampRate = 200;
-    Schedules[j].Segments[5].RampRate = 200;
-    Schedules[j].Segments[6].RampRate = 200;
-    Schedules[j].Segments[7].RampRate = 200;
-    Schedules[j].Segments[8].RampRate = 200;
-    Schedules[j].Segments[9].RampRate = 200;
-    // soaktime
-    for (int k=0;k<NUMBER_OF_SEGMENTS;k++) {
-      Schedules[j].Segments[k].SoakTime = 1;
-    }
-    // state
-    for (int k=0;k<NUMBER_OF_SEGMENTS;k++) {
-      Schedules[j].Segments[k].State = SEGMENT_STATE_IDLE;
-    }
-  }
-  */
   writeScheduleToEeeprom();
 }
 
 void writeScheduleToEeeprom() {
-  
+  //Serial.println(F("Writing Schedule to EEPROM..."));
   int address = EEPROM_SCH_START_ADDR;
 
   for (int i=0; i<NUMBER_OF_SCHEDULES; i++) {
@@ -1135,7 +1047,7 @@ void writeScheduleToEeeprom() {
 }
 
 void readScheduleFromEeeprom() {
-  
+  //Serial.println(F("Reading Schedule from EEPROM..."));
   int address = EEPROM_SCH_START_ADDR;
 
   for (int i=0; i<NUMBER_OF_SCHEDULES; i++) {
