@@ -1,6 +1,7 @@
 {
     "C_Cpp.intelliSenseEngineFallback": "Enabled",
-    "arduino.path": "C:\\Program Files (x86)\\Arduino", 
+    "arduino.path_windows": "C:\\Program Files (x86)\\Arduino", 
+    "arduino.path": "/Applications/Arduino.app", 
     "arduino.additionalUrls": "", 
     "arduino.logLevel": "info", 
     "arduino.enableUSBDetection": true, 

@@ -5,7 +5,10 @@
             "includePath": [
                 "C:\\Users\\thomad05\\AppData\\Local\\Arduino15\\packages\\esp8266\\tools\\**",
                 "C:\\Users\\thomad05\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.2\\**",
-                "C:\\Users\\thomad05\\Documents\\Arduino\\libraries\\**"
+                "C:\\Users\\thomad05\\Documents\\Arduino\\libraries\\**",
+                "/Users/Dale/Library/Arduino15/packages/esp8266/hardware/esp8266/2.7.2/**",
+                "/Users/Dale/Library/Arduino15/packages/esp8266/tools/**",
+                "/Users/Dale/Documents/Arduino/libraries/**"
             ],
             "forcedInclude": [],
             "intelliSenseMode": "msvc-x64",
