@@ -101,6 +101,68 @@
     .BTN_LINKS:active {
       position:absolute;
     }
+    .BTN_NEXT {
+      box-shadow: 0px 10px 14px -7px #ffffff;
+      background:linear-gradient(to bottom, #ededed 5%, #dfdfdf 100%);
+      background-color:#ededed;
+      border-radius:4px;
+      border:1px solid #dcdcdc;
+      display:inline-block;
+      cursor:pointer;
+      color:#777777;
+      font-family:Arial;
+      font-size:13px;
+      font-weight:bold;
+      padding:6px 12px;
+      text-decoration:none;
+      text-shadow:0px 1px 0px #ffffff;
+      text-align: center;
+      line-height: 40px;
+      position:absolute;
+      bottom: 150px;
+      left: 10px;
+      width: 100px;
+      height: 40px;
+    }
+    .BTN_NEXT:hover {
+      background:linear-gradient(to bottom, #dfdfdf 5%, #ededed 100%);
+      background-color:#dfdfdf;
+      position:absolute;
+    }
+    .BTN_NEXT:active {
+      position:absolute;
+    }
+    .BTN_PREV {
+      box-shadow: 0px 10px 14px -7px #ffffff;
+      background:linear-gradient(to bottom, #ededed 5%, #dfdfdf 100%);
+      background-color:#ededed;
+      border-radius:4px;
+      border:1px solid #dcdcdc;
+      display:inline-block;
+      cursor:pointer;
+      color:#777777;
+      font-family:Arial;
+      font-size:13px;
+      font-weight:bold;
+      padding:6px 12px;
+      text-decoration:none;
+      text-shadow:0px 1px 0px #ffffff;
+      text-align: center;
+      line-height: 40px;
+      position:absolute;
+      bottom: 90px;
+      left: 10px;
+      width: 100px;
+      height: 40px;
+    }
+    .BTN_PREV:hover {
+      background:linear-gradient(to bottom, #dfdfdf 5%, #ededed 100%);
+      background-color:#dfdfdf;
+      position:absolute;
+    }
+    .BTN_PREV:active {
+      position:absolute;
+    }
     .blank_row
     {
         height: 20px; /* overwrites any other rules */
@@ -145,6 +207,8 @@
       </tr>
     </table>
     <div id='content'>
+      <a id='NEXT_BUTTON'class="BTN_NEXT">NEXT</a>
+      <a id='PREV_BUTTON'class="BTN_PREV">PREV</a>
       <a id='START_BUTTON'class="BTN_START">START</a>
       <a id='STOP_BUTTON'class="BTN_STOP">STOP</a>
       <a href="file:///C:/Users/thomad05/source/repos/VSCode/Arduino/Sketches/NodeMCU_Kiln/data/SCHEDULES.html" id='SCHEDULE_BUTTON'class="BTN_LINKS">SCHEDULES</a>
