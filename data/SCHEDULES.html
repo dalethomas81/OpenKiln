@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'/>
+  <meta charset='utf-8'>
+  <style>
+    body     { font-size:120%;} 
+    p        { font-size: 75%; }
+    .BTN_LINKS {
+      box-shadow: 0px 10px 14px -7px #ffffff;
+      background:linear-gradient(to bottom, #ededed 5%, #dfdfdf 100%);
+      background-color:#ededed;
+      border-radius:4px;
+      border:1px solid #dcdcdc;
+      display:inline-block;
+      cursor:pointer;
+      color:#777777;
+      font-family:Arial;
+      font-size:13px;
+      font-weight:bold;
+      padding:6px 12px;
+      text-decoration:none;
+      text-shadow:0px 1px 0px #ffffff;
+      text-align: center;
+      line-height: 40px;
+      position:absolute;
+      bottom: 10px;
+      right: 10px;
+      width: 100px;
+      height: 40px;
+    }
+    .BTN_LINKS:hover {
+      background:linear-gradient(to bottom, #dfdfdf 5%, #ededed 100%);
+      background-color:#dfdfdf;
+      position:absolute;
+    }
+    .BTN_LINKS:active {
+      position:absolute;
+}
+  </style>
+ 
+  <title>Kiln Controls</title>
+</head>
+<body>
+  <div id='main'>
+    <h2>SCHEDULE</h2>
+    <div id='content'>
+      <a href="file:///C:/Users/thomad05/source/repos/VSCode/Arduino/Sketches/NodeMCU_Kiln/data/MAIN.html" id='MAIN_BUTTON'class="BTN_LINKS">MAIN</a>
+    </div>
+    <br />
+   </div>
+</body>
+ 
+<script>
+  var Socket;
+  function init() 
+  {
+    Socket = new WebSocket('ws://' + window.location.hostname + ':81/');
+    Socket.onmessage = function(event) { processReceivedCommand(event); };
+  }
+ 
+ 
+function processReceivedCommand(evt) 
+{
+    document.getElementById('rd').innerHTML = evt.data;
+    if (evt.data ==='STS - KILN_START') 
+    {  
+        // document.getElementById('START_BUTTON').innerHTML = 'Turn on the Kiln';  
+        // document.getElementById('STOP_BUTTON').innerHTML = 'Turn on the Kiln'; 
+        document.getElementById('KILN_status').innerHTML = 'Kiln has been started';  
+    }
+    if (evt.data ==='STS - KILN_STOP') 
+    {  
+        // document.getElementById('START_BUTTON').innerHTML = 'Turn off the Kiln'; 
+        // document.getElementById('STOP_BUTTON').innerHTML = 'Turn off the Kiln'; 
+        document.getElementById('KILN_status').innerHTML = 'Kiln has been stopped';   
+    }
+}
+ 
+  document.getElementById('START_BUTTON').addEventListener('click', startButtonClicked);
+  function startButtonClicked()
+  {   
+    var btn = document.getElementById('START_BUTTON')
+    var btnText = btn.textContent || btn.innerText;
+    document.getElementById('KILN_status').innerHTML = 'Kiln has been started';
+    sendText('CMD - START_KILN');
+    // if (btnText ==='Turn on the Kiln') { btn.innerHTML = 'Turn off the Kiln'; document.getElementById('KILN_status').innerHTML = 'Kiln is on';  sendText('1'); }  
+    // else                              { btn.innerHTML = 'Turn on the Kiln';  document.getElementById('KILN_status').innerHTML = 'Kiln is off'; sendText('0'); }
+  }
+
+  document.getElementById('STOP_BUTTON').addEventListener('click', stopButtonClicked);
+  function stopButtonClicked()
+  {   
+    var btn = document.getElementById('STOP_BUTTON')
+    var btnText = btn.textContent || btn.innerText;
+    document.getElementById('KILN_status').innerHTML = 'Kiln has been stopped';
+    sendText('CMD - STOP_KILN');
+    // if (btnText ==='Turn on the Kiln') { btn.innerHTML = 'Turn off the Kiln'; document.getElementById('KILN_status').innerHTML = 'Kiln is on';  sendText('1'); }  
+    // else                              { btn.innerHTML = 'Turn on the Kiln';  document.getElementById('KILN_status').innerHTML = 'Kiln is off'; sendText('0'); }
+  }
+ 
+  function sendText(data)
+  {
+    Socket.send(data);
+  }
+ 
+ 
+  window.onload = function(e)
+  { 
+    init();
+  }
+
+</script>
+ 
+ 
+</html>
