@@ -23,12 +23,106 @@ const char Initialized[] = {"Initialized10"};
     #define ARRAY_SIZE(x) (sizeof((x)) / sizeof((x)[0]))
 #endif
 
+
+
+
+
+
 #include <ESP8266WiFi.h>
 //#include <ESP8266mDNS.h>
 //#include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include "LittleFS.h"
 #include <EEPROM.h>
+
+#include <WebSocketsServer.h> 
+WiFiServer server(80);
+WebSocketsServer webSocket = WebSocketsServer(81);
+
+ 
+String header = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
+ 
+String html_1 = R"=====(
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'/>
+  <meta charset='utf-8'>
+  <style>
+    body     { font-size:120%;} 
+    #main    { display: table; width: 300px; margin: auto;  padding: 10px 10px 10px 10px; border: 3px solid blue; border-radius: 10px; text-align:center;} 
+    #BTN_LED { width:200px; height:40px; font-size: 110%;  }
+    p        { font-size: 75%; }
+  </style>
+ 
+  <title>Websockets</title>
+</head>
+<body>
+  <div id='main'>
+    <h3>LED CONTROL</h3>
+    <div id='content'>
+      <p id='LED_status'>LED is off</p>
+      <button id='BTN_LED'class="button">Turn on the LED</button>
+    </div>
+    <p>Recieved data = <span id='rd'>---</span> </p>
+    <br />
+   </div>
+</body>
+ 
+<script>
+  var Socket;
+  function init() 
+  {
+    Socket = new WebSocket('ws://' + window.location.hostname + ':81/');
+    Socket.onmessage = function(event) { processReceivedCommand(event); };
+  }
+ 
+ 
+function processReceivedCommand(evt) 
+{
+    document.getElementById('rd').innerHTML = evt.data;
+    if (evt.data ==='0') 
+    {  
+        document.getElementById('BTN_LED').innerHTML = 'Turn on the LED';  
+        document.getElementById('LED_status').innerHTML = 'LED is off';  
+    }
+    if (evt.data ==='1') 
+    {  
+        document.getElementById('BTN_LED').innerHTML = 'Turn off the LED'; 
+        document.getElementById('LED_status').innerHTML = 'LED is on';   
+    }
+}
+ 
+ 
+  document.getElementById('BTN_LED').addEventListener('click', buttonClicked);
+  function buttonClicked()
+  {   
+    var btn = document.getElementById('BTN_LED')
+    var btnText = btn.textContent || btn.innerText;
+    if (btnText ==='Turn on the LED') { btn.innerHTML = 'Turn off the LED'; document.getElementById('LED_status').innerHTML = 'LED is on';  sendText('1'); }  
+    else                              { btn.innerHTML = 'Turn on the LED';  document.getElementById('LED_status').innerHTML = 'LED is off'; sendText('0'); }
+  }
+ 
+  function sendText(data)
+  {
+    Socket.send(data);
+  }
+ 
+ 
+  window.onload = function(e)
+  { 
+    init();
+  }
+</script>
+ 
+ 
+</html>
+)=====";
+
+
+
+
+
 
 //
 // modbus
@@ -1187,9 +1281,15 @@ void setup() {
   pinMode(SSR_PIN_02, OUTPUT);
   pinMode(SAFETY_CIRCUIT_INPUT, INPUT);
   pinMode(MAIN_CONTACTOR_OUTPUT, OUTPUT);
-  //digitalWrite(MAIN_CONTACTOR_OUTPUT, LOW);
   digitalWrite(MAIN_CONTACTOR_OUTPUT, HIGH);
   
+  //
+  // webSocket
+  //
+  server.begin();
+  webSocket.begin();
+  webSocket.onEvent(webSocketEvent);
+
   //
   // setup timers
   //
@@ -1375,6 +1475,8 @@ void setup() {
   Serial.println(WiFi.localIP());
 }
 
+bool HeartbeatOn = false;
+
 void loop() {
 
   //
@@ -1388,6 +1490,15 @@ void loop() {
   handleThermalRunaway();
   handleModbus();
   handleMainContactor();
+ 
+  WiFiClient client = server.available();     // Check if a client has connected
+  if (client)  {
+    client.flush();
+    client.print( header );
+    client.print( html_1 ); 
+    //Serial.println("New page served");
+  }
+
 
   //
   // handle heartbeat
@@ -1399,7 +1510,17 @@ void loop() {
     } else {
       HEARTBEAT_VALUE = HEARTBEAT_VALUE + 1;
     }
+    if (HeartbeatOn) {
+      HeartbeatOn = false;
+      webSocket.broadcastTXT("0");
+      //Serial.println("hearbeat off");
+    } else {
+      HeartbeatOn = true;
+      webSocket.broadcastTXT("1");
+      //Serial.println("hearbeat on");
+    }
   }
+  webSocket.loop();
   
   //
   // handle OTA requests
@@ -1408,3 +1529,47 @@ void loop() {
   
   yield();
 }
+
+void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length)
+{
+  // num - number of connections. maximum of 5
+  /*
+    type is the response type:
+    0 – WStype_ERROR
+    1 – WStype_DISCONNECTED
+    2 – WStype_CONNECTED
+    3 – WStype_TEXT
+    4 – WStype_BIN
+    5 – WStype_FRAGMENT_TEXT_START
+    6 – WStype_FRAGMENT_BIN_START
+    7 – WStype_FRAGMENT
+    8 – WStype_FRAGMENT_FIN
+    9 – WStype_PING
+    10- WStype_PONG - reply from ping
+  */
+  // payload - the data (note this is a pointer)
+
+  if(type == WStype_TEXT)
+  {
+      if (payload[0] == '0')
+      {
+          //digitalWrite(pin_led, LOW);
+          //Serial.println("LED=off");        
+      }
+      else if (payload[0] == '1')
+      {
+          //digitalWrite(pin_led, HIGH);
+          //Serial.println("LED=on");        
+      }
+  }
+ 
+  else  // event is not TEXT. Display the details in the serial monitor
+  {
+    //Serial.print("WStype = ");   Serial.println(type);  
+    //Serial.print("WS payload = ");
+// since payload is a pointer we need to type cast to char
+    for(int i = 0; i < length; i++) { Serial.print((char) payload[i]); }
+    //Serial.println();
+  }
+}
+
