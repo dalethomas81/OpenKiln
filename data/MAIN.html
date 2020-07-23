@@ -103,13 +103,31 @@
 }
   </style>
  
-  <title>Kiln Controls</title>
+<title>Kiln Controls</title>
 </head>
 <body>
   <div id='main'>
     <h2 style="text-align: center">MAIN</h2>
-    <div id='content'>
+    <table id='status'>
       <p id='KILN_status'>Kiln is off</p>
+      <tr>
+			  <td style="text-align: right;"><label for="STATUS_CURRENT_SCHEDULE_NAME">SCHEDULE: </label></td>
+			  <td style="text-align: left;"><label id="STATUS_CURRENT_SCHEDULE_NAME">Test Schedule</label></td>
+      </tr>
+      <tr>
+        <td style="text-align: right;"><label for="STATUS_CURRENT_SEGMENT_NAME">SEGMENT: </label></td>
+			  <td style="text-align: left;"><label id="STATUS_CURRENT_SEGMENT_NAME">Test Segment</label></td>
+      </tr>
+      <tr>
+        <td style="text-align: right;"><label for="STATUS_UPPER_TEMPERATURE">UPPER TEMP: </label></td>
+			  <td style="text-align: left;"><label id="STATUS_UPPER_TEMPERATURE">1000.0</label></td>
+      </tr>
+      <tr>
+        <td style="text-align: right;"><label for="STATUS_LOWER_TEMPERATURE">LOWER TEMP: </label></td>
+			  <td style="text-align: left;"><label id="STATUS_LOWER_TEMPERATURE">1500.0</label></td>
+      </tr>
+    </table>
+    <div id='content'>
       <a id='START_BUTTON'class="BTN_START">START</a>
       <a id='STOP_BUTTON'class="BTN_STOP">STOP</a>
       <a href="file:///C:/Users/thomad05/source/repos/VSCode/Arduino/Sketches/NodeMCU_Kiln/data/SCHEDULES.html" id='SCHEDULE_BUTTON'class="BTN_LINKS">SCHEDULES</a>
