@@ -35,7 +35,7 @@ const char Initialized[] = {"Initialized10"};
 #include "LittleFS.h"
 #include <EEPROM.h>
 
-#include <WebSocketsServer.h> 
+#include <WebSocketsServer.h>  // ArduinoWebsockets
 WiFiServer server(80);
 WebSocketsServer webSocket = WebSocketsServer(81);
 
