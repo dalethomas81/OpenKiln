@@ -20,7 +20,7 @@
       font-family:Arial;
       font-size:13px;
       font-weight:bold;
-      padding:12px 24px;
+      padding:6px 12px;
       text-decoration:none;
       text-shadow:0px 1px 0px #86ae47;
     }
@@ -44,17 +44,24 @@
       font-family:Arial;
       font-size:13px;
       font-weight:bold;
-      padding:12px 24px;
+      padding:6px 12px;
       text-decoration:none;
       text-shadow:0px 1px 0px #b23e35;
+      text-align: center;
+      line-height: 40px;
+      position:absolute;
+      bottom: 5%;
+      left: 20%;
+      width: 100px;
+      height: 40px;
     }
     .BTN_STOP:hover {
       background:linear-gradient(to bottom, #e4685d 5%, #fc8d83 100%);
       background-color:#e4685d;
+      position:absolute;
     }
     .BTN_STOP:active {
-      position:relative;
-      top:1px;
+      position:absolute;
     }
     .BTN_LINKS {
       box-shadow: 0px 10px 14px -7px #ffffff;
@@ -68,17 +75,24 @@
       font-family:Arial;
       font-size:13px;
       font-weight:bold;
-      padding:12px 24px;
+      padding:6px 12px;
       text-decoration:none;
       text-shadow:0px 1px 0px #ffffff;
+      text-align: center;
+      line-height: 40px;
+      position:absolute;
+      bottom: 5%;
+      right: 5%;
+      width: 100px;
+      height: 40px;
     }
     .BTN_LINKS:hover {
       background:linear-gradient(to bottom, #dfdfdf 5%, #ededed 100%);
       background-color:#dfdfdf;
+      position:absolute;
     }
     .BTN_LINKS:active {
-      position:relative;
-      top:1px;
+      position:absolute;
 }
   </style>
  
@@ -86,14 +100,14 @@
 </head>
 <body>
   <div id='main'>
-    <h2>LED CONTROL</h2>
+    <h2>CONTROL</h2>
     <div id='content'>
-      <p id='LED_status'>LED is off</p>
+      <p id='KILN_status'>Kiln is off</p>
       <button id='START_BUTTON'class="BTN_START">START</button>
       <button id='STOP_BUTTON'class="BTN_STOP">STOP</button>
       <a href="file:///C:/Users/thomad05/source/repos/VSCode/Arduino/Sketches/NodeMCU_Kiln/data/SCHEDULES.html" id='SCHEDULE_BUTTON'class="BTN_LINKS">SCHEDULES</a>
     </div>
-    <p>Recieved data = <span id='rd'>---</span> </p>
+    <p>Received data = <span id='rd'>---</span> </p>
     <br />
    </div>
 </body>
@@ -110,26 +124,40 @@
 function processReceivedCommand(evt) 
 {
     document.getElementById('rd').innerHTML = evt.data;
-    if (evt.data ==='0') 
+    if (evt.data ==='STS - KILN_START') 
     {  
-        document.getElementById('BTN_LED').innerHTML = 'Turn on the LED';  
-        document.getElementById('LED_status').innerHTML = 'LED is off';  
+        // document.getElementById('START_BUTTON').innerHTML = 'Turn on the Kiln';  
+        // document.getElementById('STOP_BUTTON').innerHTML = 'Turn on the Kiln'; 
+        document.getElementById('KILN_status').innerHTML = 'Kiln has been started';  
     }
-    if (evt.data ==='1') 
+    if (evt.data ==='STS - KILN_STOP') 
     {  
-        document.getElementById('BTN_LED').innerHTML = 'Turn off the LED'; 
-        document.getElementById('LED_status').innerHTML = 'LED is on';   
+        // document.getElementById('START_BUTTON').innerHTML = 'Turn off the Kiln'; 
+        // document.getElementById('STOP_BUTTON').innerHTML = 'Turn off the Kiln'; 
+        document.getElementById('KILN_status').innerHTML = 'Kiln has been stopped';   
     }
 }
  
- 
-  document.getElementById('BTN_LED').addEventListener('click', buttonClicked);
-  function buttonClicked()
+  document.getElementById('START_BUTTON').addEventListener('click', startButtonClicked);
+  function startButtonClicked()
   {   
-    var btn = document.getElementById('BTN_LED')
+    var btn = document.getElementById('START_BUTTON')
     var btnText = btn.textContent || btn.innerText;
-    if (btnText ==='Turn on the LED') { btn.innerHTML = 'Turn off the LED'; document.getElementById('LED_status').innerHTML = 'LED is on';  sendText('1'); }  
-    else                              { btn.innerHTML = 'Turn on the LED';  document.getElementById('LED_status').innerHTML = 'LED is off'; sendText('0'); }
+    document.getElementById('KILN_status').innerHTML = 'Kiln has been started';
+    sendText('CMD - START_KILN');
+    // if (btnText ==='Turn on the Kiln') { btn.innerHTML = 'Turn off the Kiln'; document.getElementById('KILN_status').innerHTML = 'Kiln is on';  sendText('1'); }  
+    // else                              { btn.innerHTML = 'Turn on the Kiln';  document.getElementById('KILN_status').innerHTML = 'Kiln is off'; sendText('0'); }
+  }
+
+  document.getElementById('STOP_BUTTON').addEventListener('click', stopButtonClicked);
+  function stopButtonClicked()
+  {   
+    var btn = document.getElementById('STOP_BUTTON')
+    var btnText = btn.textContent || btn.innerText;
+    document.getElementById('KILN_status').innerHTML = 'Kiln has been stopped';
+    sendText('CMD - STOP_KILN');
+    // if (btnText ==='Turn on the Kiln') { btn.innerHTML = 'Turn off the Kiln'; document.getElementById('KILN_status').innerHTML = 'Kiln is on';  sendText('1'); }  
+    // else                              { btn.innerHTML = 'Turn on the Kiln';  document.getElementById('KILN_status').innerHTML = 'Kiln is off'; sendText('0'); }
   }
  
   function sendText(data)
@@ -142,6 +170,7 @@ function processReceivedCommand(evt)
   { 
     init();
   }
+
 </script>
  
  
