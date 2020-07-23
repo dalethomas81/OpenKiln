@@ -5,19 +5,93 @@
   <meta charset='utf-8'>
   <style>
     body     { font-size:120%;} 
-    #main    { display: table; width: 300px; margin: auto;  padding: 10px 10px 10px 10px; border: 3px solid blue; border-radius: 10px; text-align:center;} 
-    #BTN_LED { width:200px; height:40px; font-size: 110%;  }
+    /*#main    { display: table; width: 300px; margin: auto;  padding: 10px 10px 10px 10px; border: 3px solid blue; border-radius: 10px; text-align:center;}*/
+    <!--#BTN_LED { width:200px; height:40px; font-size: 110%;  }-->
     p        { font-size: 75%; }
+    .BTN_START {
+      box-shadow: 0px 10px 14px -7px #d9fbbe;
+      background:linear-gradient(to bottom, #b8e356 5%, #a5cc52 100%);
+      background-color:#b8e356;
+      border-radius:4px;
+      border:1px solid #83c41a;
+      display:inline-block;
+      cursor:pointer;
+      color:#ffffff;
+      font-family:Arial;
+      font-size:13px;
+      font-weight:bold;
+      padding:12px 24px;
+      text-decoration:none;
+      text-shadow:0px 1px 0px #86ae47;
+    }
+    .BTN_START:hover {
+      background:linear-gradient(to bottom, #a5cc52 5%, #b8e356 100%);
+	    background-color:#a5cc52;
+    }
+    .BTN_START:active {
+      position:relative;
+      top:1px;
+    }
+    .BTN_STOP {
+      box-shadow: 0px 10px 14px -7px #f7c5c0;
+      background:linear-gradient(to bottom, #fc8d83 5%, #e4685d 100%);
+      background-color:#fc8d83;
+      border-radius:4px;
+      border:1px solid #d83526;
+      display:inline-block;
+      cursor:pointer;
+      color:#ffffff;
+      font-family:Arial;
+      font-size:13px;
+      font-weight:bold;
+      padding:12px 24px;
+      text-decoration:none;
+      text-shadow:0px 1px 0px #b23e35;
+    }
+    .BTN_STOP:hover {
+      background:linear-gradient(to bottom, #e4685d 5%, #fc8d83 100%);
+      background-color:#e4685d;
+    }
+    .BTN_STOP:active {
+      position:relative;
+      top:1px;
+    }
+    .BTN_LINKS {
+      box-shadow: 0px 10px 14px -7px #ffffff;
+      background:linear-gradient(to bottom, #ededed 5%, #dfdfdf 100%);
+      background-color:#ededed;
+      border-radius:4px;
+      border:1px solid #dcdcdc;
+      display:inline-block;
+      cursor:pointer;
+      color:#777777;
+      font-family:Arial;
+      font-size:13px;
+      font-weight:bold;
+      padding:12px 24px;
+      text-decoration:none;
+      text-shadow:0px 1px 0px #ffffff;
+    }
+    .BTN_LINKS:hover {
+      background:linear-gradient(to bottom, #dfdfdf 5%, #ededed 100%);
+      background-color:#dfdfdf;
+    }
+    .BTN_LINKS:active {
+      position:relative;
+      top:1px;
+}
   </style>
  
-  <title>Websockets</title>
+  <title>Kiln Controls</title>
 </head>
 <body>
   <div id='main'>
-    <h3>LED CONTROL</h3>
+    <h2>LED CONTROL</h2>
     <div id='content'>
       <p id='LED_status'>LED is off</p>
-      <button id='BTN_LED'class="button">Turn on the LED</button>
+      <button id='START_BUTTON'class="BTN_START">START</button>
+      <button id='STOP_BUTTON'class="BTN_STOP">STOP</button>
+      <a href="file:///C:/Users/thomad05/source/repos/VSCode/Arduino/Sketches/NodeMCU_Kiln/data/SCHEDULES.html" id='SCHEDULE_BUTTON'class="BTN_LINKS">SCHEDULES</a>
     </div>
     <p>Recieved data = <span id='rd'>---</span> </p>
     <br />
