@@ -23,14 +23,21 @@
       padding:6px 12px;
       text-decoration:none;
       text-shadow:0px 1px 0px #86ae47;
+      text-align: center;
+      line-height: 40px;
+      position:absolute;
+      bottom: 10px;
+      left: 10px;
+      width: 100px;
+      height: 40px;
     }
     .BTN_START:hover {
       background:linear-gradient(to bottom, #a5cc52 5%, #b8e356 100%);
 	    background-color:#a5cc52;
+      position:absolute;
     }
     .BTN_START:active {
-      position:relative;
-      top:1px;
+      position:absolute;
     }
     .BTN_STOP {
       box-shadow: 0px 10px 14px -7px #f7c5c0;
@@ -50,8 +57,8 @@
       text-align: center;
       line-height: 40px;
       position:absolute;
-      bottom: 5%;
-      left: 20%;
+      bottom: 10px;
+      left: 145px;
       width: 100px;
       height: 40px;
     }
@@ -81,8 +88,8 @@
       text-align: center;
       line-height: 40px;
       position:absolute;
-      bottom: 5%;
-      right: 5%;
+      bottom: 10px;
+      right: 10px;
       width: 100px;
       height: 40px;
     }
@@ -103,8 +110,8 @@
     <h2>CONTROL</h2>
     <div id='content'>
       <p id='KILN_status'>Kiln is off</p>
-      <button id='START_BUTTON'class="BTN_START">START</button>
-      <button id='STOP_BUTTON'class="BTN_STOP">STOP</button>
+      <a id='START_BUTTON'class="BTN_START">START</a>
+      <a id='STOP_BUTTON'class="BTN_STOP">STOP</a>
       <a href="file:///C:/Users/thomad05/source/repos/VSCode/Arduino/Sketches/NodeMCU_Kiln/data/SCHEDULES.html" id='SCHEDULE_BUTTON'class="BTN_LINKS">SCHEDULES</a>
     </div>
     <p>Received data = <span id='rd'>---</span> </p>
