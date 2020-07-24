@@ -25,6 +25,9 @@ const char Initialized[] = {"Initialized10"};
 
 
 
+#include <ArduinoJson.h>
+#include <StreamString.h>
+ 
 
 
 
@@ -1185,7 +1188,7 @@ void handleMainContactor() {
 }
 
 void setup() {
-  Serial.begin(115200, SERIAL_8N1);
+    Serial.begin(115200, SERIAL_8N1);
 
     delay(500);
  
@@ -1245,6 +1248,7 @@ void setup() {
             Serial.println("0");
         }
     }
+
    
   //
   // setup pins
@@ -1497,11 +1501,37 @@ void loop() {
     if (HeartbeatOn) {
       HeartbeatOn = false;
       webSocket.broadcastTXT("0");
-      //Serial.println("hearbeat off");
     } else {
       HeartbeatOn = true;
-      webSocket.broadcastTXT("1");
-      //Serial.println("hearbeat on");
+      //webSocket.broadcastTXT("1");
+      //static char outstr[15]; dtostrf(temperature_ch0,7, 1, outstr);
+      //webSocket.broadcastTXT(outstr, sizeof(outstr));
+      //webSocket.broadcastTXT(outstr, "STS-UPPER_TEMP");
+      //JsonObject& root = jsonBuffer.createObject();
+     
+      // Allocate the JSON document
+      //
+      // Inside the brackets, 200 is the RAM allocated to this document.
+      // Don't forget to change this value to match your requirement.
+      // Use arduinojson.org/v6/assistant to compute the capacity.
+      //StaticJsonDocument<200> doc;
+
+      // StaticJsonObject allocates memory on the stack, it can be
+      // replaced by DynamicJsonDocument which allocates in the heap.
+      //
+      DynamicJsonDocument  jsonBuffer(128);
+      jsonBuffer["topic"] = "STS-UPPER_TEMP";
+      jsonBuffer["val"] = temperature_ch0;
+
+      //JsonArray& data = root.createNestedArray("data");
+      //data.add(48.756080, 6);  // 6 is the number of decimals to print
+      //data.add(2.302038, 6);   // if not specified, 2 digits are printed
+
+      StreamString databuf;
+      //root.writeTo(databuf);
+      serializeJson(jsonBuffer,databuf);
+      //webSocket.sendTXT(databuf);
+      webSocket.broadcastTXT(databuf);
     }
   }
   webSocket.loop();
@@ -1535,25 +1565,23 @@ void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length)
 
   if(type == WStype_TEXT)
   {
-      if (payload[0] == '0')
-      {
-          //digitalWrite(pin_led, LOW);
-          //Serial.println("LED=off");        
-      }
-      else if (payload[0] == '1')
-      {
-          //digitalWrite(pin_led, HIGH);
-          //Serial.println("LED=on");        
-      }
-  }
- 
-  else  // event is not TEXT. Display the details in the serial monitor
+    String payload_str = String((char*) payload);
+
+    if(payload_str == "CMD-START_PROFILE") {
+      ui_StartProfile = true;
+    }
+    if(payload_str == "CMD-STOP_PROFILE") {
+      ui_StopProfile = true;
+    }
+
+  } 
+    else  // event is not TEXT. Display the details in the serial monitor
   {
-    //Serial.print("WStype = ");   Serial.println(type);  
-    //Serial.print("WS payload = ");
-// since payload is a pointer we need to type cast to char
+    Serial.print("WStype = ");   Serial.println(type);  
+    Serial.print("WS payload = ");
+    // since payload is a pointer we need to type cast to char
     for(int i = 0; i < length; i++) { Serial.print((char) payload[i]); }
-    //Serial.println();
+    Serial.println();
   }
 }
 

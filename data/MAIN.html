@@ -26,7 +26,7 @@
       text-align: center;
       line-height: 40px;
       position:absolute;
-      bottom: 10px;
+      bottom: 30px;
       left: 10px;
       width: 100px;
       height: 40px;
@@ -57,7 +57,7 @@
       text-align: center;
       line-height: 40px;
       position:absolute;
-      bottom: 10px;
+      bottom: 30px;
       left: 145px;
       width: 100px;
       height: 40px;
@@ -88,7 +88,7 @@
       text-align: center;
       line-height: 40px;
       position:absolute;
-      bottom: 10px;
+      bottom: 30px;
       right: 10px;
       width: 100px;
       height: 40px;
@@ -179,10 +179,8 @@
     .debug_raw
     {
       position:absolute;
-      top: 20px;
+      bottom: 0px;
       left: 10px;
-      width: 100px;
-      height: 40px;
     }
 
   </style>
@@ -192,9 +190,9 @@
 <body>
   <div id='main'>
     <h2 style="text-align: center; color:#777777">MAIN</h2>
+    <p id='KILN_status' class="debug_status">Kiln is off</p>
+    <p class="debug_raw">Received data = <span id='rd'>---</span> </p>
     <table style="position:absolute; top:80px; right:20px;" id='status'>
-      <p id='KILN_status' class="debug_status">Kiln is off</p>
-      <p class="debug_raw">Received data = <span id='rd'>---</span> </p>
       <tr>
 			  <td style="text-align: right; font-size: 80%; color:#777777"><label for="STATUS_CURRENT_SCHEDULE_NAME">SCHEDULE: </label></td>
 			  <td style="text-align: left; font-size: 70%; color:#777777"><label id="STATUS_CURRENT_SCHEDULE_NAME">Test Schedule</label></td>
@@ -246,17 +244,20 @@
 function processReceivedCommand(evt) 
 {
     document.getElementById('rd').innerHTML = evt.data;
-    if (evt.data ==='STS - KILN_START') 
-    {  
-        // document.getElementById('START_BUTTON').innerHTML = 'Turn on the Kiln';  
-        // document.getElementById('STOP_BUTTON').innerHTML = 'Turn on the Kiln'; 
-        document.getElementById('KILN_status').innerHTML = 'Kiln has been started';  
-    }
-    if (evt.data ==='STS - KILN_STOP') 
-    {  
-        // document.getElementById('START_BUTTON').innerHTML = 'Turn off the Kiln'; 
-        // document.getElementById('STOP_BUTTON').innerHTML = 'Turn off the Kiln'; 
-        document.getElementById('KILN_status').innerHTML = 'Kiln has been stopped';   
+    var obj = JSON.parse(evt.data);
+    switch (obj.topic) {
+      case "STS-KILN_START":
+        document.getElementById('KILN_status').innerHTML = obj.val;
+        break;
+      case "STS-KILN_STOP":
+        document.getElementById('KILN_status').innerHTML = obj.val;
+        break;
+      case "STS-UPPER_TEMP":
+        document.getElementById('STATUS_UPPER_TEMPERATURE').innerHTML = obj.val;
+        break;
+      case "STS-LOWER_TEMP":
+        document.getElementById('STATUS_LOWER_TEMPERATURE').innerHTML = obj.va;
+        break;
     }
 }
  
@@ -266,7 +267,7 @@ function processReceivedCommand(evt)
     var btn = document.getElementById('START_BUTTON')
     var btnText = btn.textContent || btn.innerText;
     document.getElementById('KILN_status').innerHTML = 'Kiln has been started';
-    sendText('CMD - START_KILN');
+    sendText('CMD-START_KILN');
     // if (btnText ==='Turn on the Kiln') { btn.innerHTML = 'Turn off the Kiln'; document.getElementById('KILN_status').innerHTML = 'Kiln is on';  sendText('1'); }  
     // else                              { btn.innerHTML = 'Turn on the Kiln';  document.getElementById('KILN_status').innerHTML = 'Kiln is off'; sendText('0'); }
   }
@@ -277,7 +278,7 @@ function processReceivedCommand(evt)
     var btn = document.getElementById('STOP_BUTTON')
     var btnText = btn.textContent || btn.innerText;
     document.getElementById('KILN_status').innerHTML = 'Kiln has been stopped';
-    sendText('CMD - STOP_KILN');
+    sendText('CMD-STOP_KILN');
     // if (btnText ==='Turn on the Kiln') { btn.innerHTML = 'Turn off the Kiln'; document.getElementById('KILN_status').innerHTML = 'Kiln is on';  sendText('1'); }  
     // else                              { btn.innerHTML = 'Turn on the Kiln';  document.getElementById('KILN_status').innerHTML = 'Kiln is off'; sendText('0'); }
   }
