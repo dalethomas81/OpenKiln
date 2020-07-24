@@ -32,97 +32,12 @@ const char Initialized[] = {"Initialized10"};
 //#include <ESP8266mDNS.h>
 //#include <WiFiUdp.h>
 #include <ArduinoOTA.h>
-#include "LittleFS.h"
+#include "LittleFS.h" // need the upload tool here https://github.com/earlephilhower/arduino-esp8266littlefs-plugin
 #include <EEPROM.h>
 
 #include <WebSocketsServer.h>  // ArduinoWebsockets
 WiFiServer server(80);
 WebSocketsServer webSocket = WebSocketsServer(81);
-
- 
-String header = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
- 
-String html_1 = R"=====(
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name='viewport' content='width=device-width, initial-scale=1.0'/>
-  <meta charset='utf-8'>
-  <style>
-    body     { font-size:120%;} 
-    #main    { display: table; width: 300px; margin: auto;  padding: 10px 10px 10px 10px; border: 3px solid blue; border-radius: 10px; text-align:center;} 
-    #BTN_LED { width:200px; height:40px; font-size: 110%;  }
-    p        { font-size: 75%; }
-  </style>
- 
-  <title>Websockets</title>
-</head>
-<body>
-  <div id='main'>
-    <h3>LED CONTROL</h3>
-    <div id='content'>
-      <p id='LED_status'>LED is off</p>
-      <button id='BTN_LED'class="button">Turn on the LED</button>
-    </div>
-    <p>Recieved data = <span id='rd'>---</span> </p>
-    <br />
-   </div>
-</body>
- 
-<script>
-  var Socket;
-  function init() 
-  {
-    Socket = new WebSocket('ws://' + window.location.hostname + ':81/');
-    Socket.onmessage = function(event) { processReceivedCommand(event); };
-  }
- 
- 
-function processReceivedCommand(evt) 
-{
-    document.getElementById('rd').innerHTML = evt.data;
-    if (evt.data ==='0') 
-    {  
-        document.getElementById('BTN_LED').innerHTML = 'Turn on the LED';  
-        document.getElementById('LED_status').innerHTML = 'LED is off';  
-    }
-    if (evt.data ==='1') 
-    {  
-        document.getElementById('BTN_LED').innerHTML = 'Turn off the LED'; 
-        document.getElementById('LED_status').innerHTML = 'LED is on';   
-    }
-}
- 
- 
-  document.getElementById('BTN_LED').addEventListener('click', buttonClicked);
-  function buttonClicked()
-  {   
-    var btn = document.getElementById('BTN_LED')
-    var btnText = btn.textContent || btn.innerText;
-    if (btnText ==='Turn on the LED') { btn.innerHTML = 'Turn off the LED'; document.getElementById('LED_status').innerHTML = 'LED is on';  sendText('1'); }  
-    else                              { btn.innerHTML = 'Turn on the LED';  document.getElementById('LED_status').innerHTML = 'LED is off'; sendText('0'); }
-  }
- 
-  function sendText(data)
-  {
-    Socket.send(data);
-  }
- 
- 
-  window.onload = function(e)
-  { 
-    init();
-  }
-</script>
- 
- 
-</html>
-)=====";
-
-
-
-
-
 
 //
 // modbus
@@ -1049,6 +964,10 @@ void makeInitialized(){
   /*for (byte i=0;i<sizeof(version)-1;i++){
     EEPROM.write(i, version[i]);
   }*/
+
+  // To format all space in LittleFS
+  LittleFS.format();
+
   EEPROM.commit();
 }
 
@@ -1267,11 +1186,65 @@ void handleMainContactor() {
 
 void setup() {
   Serial.begin(115200, SERIAL_8N1);
-  
-  EEPROM.begin(EEPROM_SIZE);
-  /* check if this is a new device */
-  checkInit();
-  readScheduleFromEeeprom();
+
+    delay(500);
+ 
+    Serial.println(F("Inizializing FS..."));
+    if (LittleFS.begin()){
+        Serial.println(F("done."));
+    }else{
+        Serial.println(F("fail."));
+    }
+ 
+    // To format all space in LittleFS
+     //LittleFS.format();
+ 
+    // Get all information of your LittleFS
+    FSInfo fs_info;
+    LittleFS.info(fs_info);
+ 
+    Serial.println("File sistem info.");
+ 
+    Serial.print("Total space:      ");
+    Serial.print(fs_info.totalBytes);
+    Serial.println("byte");
+ 
+    Serial.print("Total space used: ");
+    Serial.print(fs_info.usedBytes);
+    Serial.println("byte");
+ 
+    Serial.print("Block size:       ");
+    Serial.print(fs_info.blockSize);
+    Serial.println("byte");
+ 
+    Serial.print("Page size:        ");
+    Serial.print(fs_info.totalBytes);
+    Serial.println("byte");
+ 
+    Serial.print("Max open files:   ");
+    Serial.println(fs_info.maxOpenFiles);
+ 
+    Serial.print("Max path lenght:  ");
+    Serial.println(fs_info.maxPathLength);
+ 
+    Serial.println();
+ 
+    // Open dir folder
+    Dir dir = LittleFS.openDir("/");
+    // Cycle all the content
+    while (dir.next()) {
+        // get filename
+        Serial.print(dir.fileName());
+        Serial.print(" - ");
+        // If element have a size display It else write 0
+        if(dir.fileSize()) {
+            File f = dir.openFile("r");
+            Serial.println(f.size());
+            f.close();
+        }else{
+            Serial.println("0");
+        }
+    }
    
   //
   // setup pins
@@ -1347,6 +1320,7 @@ void setup() {
   // No authentication by default
   //ArduinoOTA.setPassword((const char *)OTA_PASSWORD);
   ArduinoOTA.onStart([]() {
+    LittleFS.end();
     Serial.println("Start");
   });
   ArduinoOTA.onEnd([]() {
@@ -1494,8 +1468,18 @@ void loop() {
   WiFiClient client = server.available();     // Check if a client has connected
   if (client)  {
     client.flush();
-    client.print( header );
-    client.print( html_1 ); 
+    File f = LittleFS.open("/MAIN.html","r");
+    if (!f) {
+      Serial.println("Error opening file.");
+    } else {
+      while (f.available()) {
+        client.write( f.read() );
+        //Serial.write( f.read() );
+      }
+      f.close();
+    }
+    //client.print( header );
+    //client.print( html_1 ); 
     //Serial.println("New page served");
   }
 
