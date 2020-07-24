@@ -188,7 +188,7 @@ int SafetyInputLast = 0;
 WebSocketsServer webSocket = WebSocketsServer(WIFI_LISTENING_PORT+1);
 
 #include <ESPAsyncTCP.h>
-#include <ESPAsyncWebServer.h>
+#include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 AsyncWebServer server(80);
 
 //
@@ -1389,12 +1389,15 @@ void setup() {
   // webSocket
   //
     // Route for root / web page
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){ // https://github.com/me-no-dev/ESPAsyncWebServer
     //request->send(1, html_file, char());
     //AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", html_file);
     //response->addHeader("Server","ESP Async Web Server");
     //request->send(response);
+
+    //request->send_P(200, "text/html", html_file);
     request->send(LittleFS, "/MAIN.html");
+
     //request->send(LittleFS, "/MAIN.html", String(), false, processor);
     //request->send(SPIFFS, "/index.html", String(), false, processor);
   });
