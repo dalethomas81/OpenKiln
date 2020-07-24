@@ -1503,35 +1503,46 @@ void loop() {
       webSocket.broadcastTXT("0");
     } else {
       HeartbeatOn = true;
-      //webSocket.broadcastTXT("1");
-      //static char outstr[15]; dtostrf(temperature_ch0,7, 1, outstr);
-      //webSocket.broadcastTXT(outstr, sizeof(outstr));
-      //webSocket.broadcastTXT(outstr, "STS-UPPER_TEMP");
-      //JsonObject& root = jsonBuffer.createObject();
-     
-      // Allocate the JSON document
-      //
-      // Inside the brackets, 200 is the RAM allocated to this document.
-      // Don't forget to change this value to match your requirement.
-      // Use arduinojson.org/v6/assistant to compute the capacity.
-      //StaticJsonDocument<200> doc;
 
-      // StaticJsonObject allocates memory on the stack, it can be
-      // replaced by DynamicJsonDocument which allocates in the heap.
-      //
-      DynamicJsonDocument  jsonBuffer(128);
-      jsonBuffer["topic"] = "STS-UPPER_TEMP";
-      jsonBuffer["val"] = temperature_ch0;
-
-      //JsonArray& data = root.createNestedArray("data");
-      //data.add(48.756080, 6);  // 6 is the number of decimals to print
-      //data.add(2.302038, 6);   // if not specified, 2 digits are printed
-
+      DynamicJsonDocument  jsonBuffer(250); // https://arduinojson.org/v6/assistant/
+      DynamicJsonDocument  jsonBuffer_data(250); // https://arduinojson.org/v6/assistant/
       StreamString databuf;
-      //root.writeTo(databuf);
+      /*
+      {
+      "topic":"gen",
+        "data": {
+          "1": "cone 05 bisque",
+          "2": "candle",
+          "3": 1,
+          "4": "hh:mm:ss",
+          "5": 1200.0,
+          "6": 1234.0,
+          "7": 1234.0
+        }
+      }
+      */
+      jsonBuffer_data["id1"] = LoadedSchedule.Name; 
+      jsonBuffer_data["id2"] = LoadedSchedule.Segments[SegmentIndex].Name;
+      jsonBuffer_data["id3"] = LoadedSchedule.Segments[SegmentIndex].State;
+      jsonBuffer_data["id4"] = "01:06:34"; // Segment_TimeRemaining.hours
+      jsonBuffer_data["id5"] = ui_Setpoint;
+      jsonBuffer_data["id6"] = temperature_ch0;
+      jsonBuffer_data["id7"] = temperature_ch1;
+      jsonBuffer["topic"] = "status";
+      jsonBuffer["data"] = jsonBuffer_data;
       serializeJson(jsonBuffer,databuf);
-      //webSocket.sendTXT(databuf);
       webSocket.broadcastTXT(databuf);
+/*
+      jsonBuffer["topic"] = "STS-UPPER_TEMP";
+      jsonBuffer["val"] = 123.0;//temperature_ch0;
+      serializeJson(jsonBuffer,databuf);
+      webSocket.broadcastTXT(databuf);
+
+      jsonBuffer["topic"] = "STS-LOWER_TEMP";
+      jsonBuffer["val"] = 321.0;//temperature_ch1;
+      serializeJson(jsonBuffer,databuf);
+      webSocket.broadcastTXT(databuf);
+*/
     }
   }
   webSocket.loop();
@@ -1565,14 +1576,25 @@ void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length)
 
   if(type == WStype_TEXT)
   {
-    String payload_str = String((char*) payload);
+    /*String payload_str = String((char*) payload);
 
     if(payload_str == "CMD-START_PROFILE") {
       ui_StartProfile = true;
     }
     if(payload_str == "CMD-STOP_PROFILE") {
       ui_StopProfile = true;
+    }*/
+    
+    DynamicJsonDocument jsonBuffer(128);
+    deserializeJson(jsonBuffer, payload);
+    const char* topic = jsonBuffer["topic"];
+    if(strcmp(topic, "CMD-START_PROFILE") == 0) {
+      ui_StartProfile = true;
     }
+    if(strcmp(topic, "CMD-STOP_PROFILE") == 0) {
+      ui_StopProfile = true;
+    }
+
 
   } 
     else  // event is not TEXT. Display the details in the serial monitor

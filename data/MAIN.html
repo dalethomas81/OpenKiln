@@ -243,14 +243,48 @@
  
 function processReceivedCommand(evt) 
 {
+        /*
+      {
+      "topic":"gen",
+        "data": {
+          "id1": "cone 05 bisque",
+          "id2": "candle",
+          "id3": 1,
+          "id4": "hh:mm:ss",
+          "id5": 1200.0,
+          "id6": 1234.0,
+          "id7": 1234.0
+        }
+      }
+      */
     document.getElementById('rd').innerHTML = evt.data;
+
     var obj = JSON.parse(evt.data);
-    switch (obj.topic) {
+    if (obj.topic == "status") {
+        document.getElementById('STATUS_CURRENT_SCHEDULE_NAME').innerHTML = obj.data.id1;
+        document.getElementById('STATUS_CURRENT_SEGMENT_NAME').innerHTML = obj.data.id2;
+        document.getElementById('STATUS_CURRENT_SEGMENT_STATUS').innerHTML = obj.data.id3;
+        // remaining
+        // setpoint
+        document.getElementById('STATUS_UPPER_TEMPERATURE').innerHTML = obj.data.id6;
+        document.getElementById('STATUS_LOWER_TEMPERATURE').innerHTML = obj.data.id7;
+
+    }
+ /*   switch (obj.topic) {
       case "STS-KILN_START":
-        document.getElementById('KILN_status').innerHTML = obj.val;
+        document.getElementById('KILN_status').innerHTML = 'The kiln has been started.';
         break;
       case "STS-KILN_STOP":
-        document.getElementById('KILN_status').innerHTML = obj.val;
+        document.getElementById('KILN_status').innerHTML = 'The kiln has been stopped.';
+        break;
+      case "STS-SCHEDULE_NAME":
+        document.getElementById('STATUS_CURRENT_SCHEDULE_NAME').innerHTML = obj.val;
+        break;
+      case "STS-SEGMENT_NAME":
+        document.getElementById('STATUS_CURRENT_SEGMENT_NAME').innerHTML = obj.val;
+        break;
+      case "STS-SEGMENT_STATUS":
+        document.getElementById('STATUS_CURRENT_SEGMENT_STATUS').innerHTML = obj.val;
         break;
       case "STS-UPPER_TEMP":
         document.getElementById('STATUS_UPPER_TEMPERATURE').innerHTML = obj.val;
@@ -258,7 +292,7 @@ function processReceivedCommand(evt)
       case "STS-LOWER_TEMP":
         document.getElementById('STATUS_LOWER_TEMPERATURE').innerHTML = obj.va;
         break;
-    }
+    }*/
 }
  
   document.getElementById('START_BUTTON').addEventListener('click', startButtonClicked);
@@ -266,8 +300,8 @@ function processReceivedCommand(evt)
   {   
     var btn = document.getElementById('START_BUTTON')
     var btnText = btn.textContent || btn.innerText;
-    document.getElementById('KILN_status').innerHTML = 'Kiln has been started';
-    sendText('CMD-START_KILN');
+    //document.getElementById('KILN_status').innerHTML = 'Kiln has been started';
+    sendText('{"topic":"CMD-START_KILN","val":"true"');
     // if (btnText ==='Turn on the Kiln') { btn.innerHTML = 'Turn off the Kiln'; document.getElementById('KILN_status').innerHTML = 'Kiln is on';  sendText('1'); }  
     // else                              { btn.innerHTML = 'Turn on the Kiln';  document.getElementById('KILN_status').innerHTML = 'Kiln is off'; sendText('0'); }
   }
@@ -277,8 +311,8 @@ function processReceivedCommand(evt)
   {   
     var btn = document.getElementById('STOP_BUTTON')
     var btnText = btn.textContent || btn.innerText;
-    document.getElementById('KILN_status').innerHTML = 'Kiln has been stopped';
-    sendText('CMD-STOP_KILN');
+    //document.getElementById('KILN_status').innerHTML = 'Kiln has been stopped';
+    sendText('{"topic":"CMD-STOP_KILN","val":"true"');
     // if (btnText ==='Turn on the Kiln') { btn.innerHTML = 'Turn off the Kiln'; document.getElementById('KILN_status').innerHTML = 'Kiln is on';  sendText('1'); }  
     // else                              { btn.innerHTML = 'Turn on the Kiln';  document.getElementById('KILN_status').innerHTML = 'Kiln is off'; sendText('0'); }
   }
