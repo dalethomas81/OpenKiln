@@ -189,7 +189,7 @@ WebSocketsServer webSocket = WebSocketsServer(WIFI_LISTENING_PORT+1);
 
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
-AsyncWebServer server(80);
+AsyncWebServer server(WIFI_LISTENING_PORT);
 
 //
 // init wifi
