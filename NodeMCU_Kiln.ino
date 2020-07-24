@@ -38,10 +38,6 @@ const char Initialized[] = {"Initialized10"};
 #include "LittleFS.h" // need the upload tool here https://github.com/earlephilhower/arduino-esp8266littlefs-plugin
 #include <EEPROM.h>
 
-#include <WebSocketsServer.h>  // ArduinoWebsockets
-WiFiServer server(80);
-WebSocketsServer webSocket = WebSocketsServer(81);
-
 //
 // modbus
 //
@@ -156,12 +152,12 @@ Adafruit_MAX31855 thermocouple_ch1(MAXCS_CH1);
 //
 // defines
 //
-#define WIFI_SSID                 "Thomas_301"
-#define WIFI_PASSWORD             "RS232@12"
+#define WIFI_SSID                 "TP-LINK_E6C9E0" //"Thomas_301"
+#define WIFI_PASSWORD             "C2E6C9E0" //"RS232@12"
 #define WIFI_LISTENING_PORT       80
 #define SERIAL_BAUD_RATE          115200
 #define OTA_PASSWORD              "ProFiBus@12"
-#define OTA_HOSTNAME              "KilnControls" // having this too long was causing problems with aRest
+#define OTA_HOSTNAME              "KilnControls"
 #define HEARTBEAT_TIME            1000
 
 #define AUTOMATIC_MODE            1
@@ -186,6 +182,10 @@ const int SSR_PIN_02 = D2;
 unsigned long timer_heartbeat;
 bool Safety_Ok = false;
 int SafetyInputLast = 0;
+
+#include <WebSocketsServer.h>  // Websockets by Markus Sattler https://github.com/Links2004/arduinoWebSockets
+WiFiServer server(WIFI_LISTENING_PORT);
+WebSocketsServer webSocket = WebSocketsServer(WIFI_LISTENING_PORT+1);
 
 //
 // init wifi
@@ -968,10 +968,10 @@ void makeInitialized(){
     EEPROM.write(i, version[i]);
   }*/
 
-  // To format all space in LittleFS
-  //LittleFS.format();
-
   EEPROM.commit();
+
+  // To format all space in LittleFS
+  LittleFS.format();
 }
 
 void applyDefaultScheduleSettings() {
@@ -1187,10 +1187,84 @@ void handleMainContactor() {
   }
 }
 
+void connectWifi(int delaytime) { 
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  if (delaytime>0){
+    int TryCount = 0;
+    while (WiFi.waitForConnectResult() != WL_CONNECTED && TryCount < 3) {
+      TryCount++;
+      Serial.println("Wifi Connection Failed! Retrying...");
+      delay(delaytime);
+      //ESP.restart();
+    }
+  }
+  if (WiFi.status() == WL_CONNECTED) {
+    WiFi.setAutoReconnect(true);
+    WiFi.persistent(true);
+  }
+} 
+
+void checkWifi() {
+  if (WiFi.status() != WL_CONNECTED) { 
+    Serial.println("Reconnecting to Wifi");
+    WiFi.reconnect();
+    //connectWifi(0);
+  }
+}
+
+#define MAX_HTML_SIZE 20000
+char html_file[MAX_HTML_SIZE] = {'\0'};
+void readHtmlFile() {
+    File f = LittleFS.open("/MAIN.html","r");
+    if (!f) {
+      Serial.println("Error opening file.");
+    } else {
+      int i=0;
+      while (f.available()) {
+        html_file[i] = f.read();
+        i++;
+        //client.write( f.read() );
+        //Serial.write( f.read() );
+      }
+      f.close();
+    }
+}
+
+void handleNewHttpClients() {
+  WiFiClient client = server.available();     // Check if a client has connected
+  client.setNoDelay(1);
+  if (client)  {
+    client.flush();
+    //client.print(html_file);
+    client.write(html_file);
+   /* 
+    File f = LittleFS.open("/MAIN.html","r");
+    if (!f) {
+      Serial.println("Error opening file.");
+    } else {
+      while (f.available()) {
+        client.write( f.read() );
+        //Serial.write( f.read() );
+      }
+      f.close();
+    }
+    */
+    //client.print( header );
+    //client.print( html_1 ); 
+    //Serial.println("New page served");
+  }
+}
+
 void setup() {
     Serial.begin(115200, SERIAL_8N1);
 
-    delay(500);
+    delay(500); // give the serial port time to start up
+
+    EEPROM.begin(EEPROM_SIZE);
+
+    checkInit();
+    readScheduleFromEeeprom();
  
     Serial.println(F("Inizializing FS..."));
     if (LittleFS.begin()){
@@ -1206,7 +1280,7 @@ void setup() {
     FSInfo fs_info;
     LittleFS.info(fs_info);
  
-    Serial.println("File sistem info.");
+    Serial.println("File system info.");
  
     Serial.print("Total space:      ");
     Serial.print(fs_info.totalBytes);
@@ -1227,7 +1301,7 @@ void setup() {
     Serial.print("Max open files:   ");
     Serial.println(fs_info.maxOpenFiles);
  
-    Serial.print("Max path lenght:  ");
+    Serial.print("Max path length:  ");
     Serial.println(fs_info.maxPathLength);
  
     Serial.println();
@@ -1249,6 +1323,8 @@ void setup() {
         }
     }
 
+  // read in the html from flash
+  readHtmlFile();
    
   //
   // setup pins
@@ -1259,13 +1335,6 @@ void setup() {
   pinMode(SAFETY_CIRCUIT_INPUT, INPUT);
   pinMode(MAIN_CONTACTOR_OUTPUT, OUTPUT);
   digitalWrite(MAIN_CONTACTOR_OUTPUT, HIGH);
-  
-  //
-  // webSocket
-  //
-  server.begin();
-  webSocket.begin();
-  webSocket.onEvent(webSocketEvent);
 
   //
   // setup timers
@@ -1304,15 +1373,14 @@ void setup() {
   //
   // setup wifi
   //
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  int TryCount = 0;
-  while (WiFi.waitForConnectResult() != WL_CONNECTED && TryCount < 3) {
-    TryCount++;
-    Serial.println("Wifi Connection Failed! Retrying...");
-    delay(5000);
-    //ESP.restart();
-  }
+  connectWifi(5000);
+  
+  //
+  // webSocket
+  //
+  server.begin();
+  webSocket.begin();
+  webSocket.onEvent(webSocketEvent);
 
   //
   // setup OTA
@@ -1460,6 +1528,7 @@ void loop() {
   //
   // handle logic
   //
+  checkWifi();
   handleSafetyCircuit();
   handleTemperature();
   handlePID();
@@ -1468,25 +1537,7 @@ void loop() {
   handleThermalRunaway();
   handleModbus();
   handleMainContactor();
- 
-  WiFiClient client = server.available();     // Check if a client has connected
-  if (client)  {
-    client.flush();
-    File f = LittleFS.open("/MAIN.html","r");
-    if (!f) {
-      Serial.println("Error opening file.");
-    } else {
-      while (f.available()) {
-        client.write( f.read() );
-        //Serial.write( f.read() );
-      }
-      f.close();
-    }
-    //client.print( header );
-    //client.print( html_1 ); 
-    //Serial.println("New page served");
-  }
-
+  handleNewHttpClients();
 
   //
   // handle heartbeat
@@ -1500,13 +1551,12 @@ void loop() {
     }
     if (HeartbeatOn) {
       HeartbeatOn = false;
+      Serial.println("Heartbeat Off");
       webSocket.broadcastTXT("0");
     } else {
       HeartbeatOn = true;
+      Serial.println("Heartbeat On");
 
-      DynamicJsonDocument  jsonBuffer(250); // https://arduinojson.org/v6/assistant/
-      DynamicJsonDocument  jsonBuffer_data(250); // https://arduinojson.org/v6/assistant/
-      StreamString databuf;
       /*
       {
       "topic":"gen",
@@ -1521,6 +1571,9 @@ void loop() {
         }
       }
       */
+      DynamicJsonDocument  jsonBuffer(250); // https://arduinojson.org/v6/assistant/
+      DynamicJsonDocument  jsonBuffer_data(250); // https://arduinojson.org/v6/assistant/
+      StreamString databuf;
       jsonBuffer_data["id1"] = LoadedSchedule.Name; 
       jsonBuffer_data["id2"] = LoadedSchedule.Segments[SegmentIndex].Name;
       jsonBuffer_data["id3"] = LoadedSchedule.Segments[SegmentIndex].State;
