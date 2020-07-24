@@ -969,7 +969,7 @@ void makeInitialized(){
   }*/
 
   // To format all space in LittleFS
-  LittleFS.format();
+  //LittleFS.format();
 
   EEPROM.commit();
 }
