@@ -184,8 +184,12 @@ bool Safety_Ok = false;
 int SafetyInputLast = 0;
 
 #include <WebSocketsServer.h>  // Websockets by Markus Sattler https://github.com/Links2004/arduinoWebSockets
-WiFiServer server(WIFI_LISTENING_PORT);
+//WiFiServer server(WIFI_LISTENING_PORT);
 WebSocketsServer webSocket = WebSocketsServer(WIFI_LISTENING_PORT+1);
+
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+AsyncWebServer server(80);
 
 //
 // init wifi
@@ -1213,7 +1217,7 @@ void checkWifi() {
   }
 }
 
-#define MAX_HTML_SIZE 20000
+#define MAX_HTML_SIZE 12000
 char html_file[MAX_HTML_SIZE] = {'\0'};
 void readHtmlFile() {
     File f = LittleFS.open("/MAIN.html","r");
@@ -1232,12 +1236,16 @@ void readHtmlFile() {
 }
 
 void handleNewHttpClients() {
-  WiFiClient client = server.available();     // Check if a client has connected
-  client.setNoDelay(1);
-  if (client)  {
-    client.flush();
+  //WiFiClient client = server.available(); // Check if a client has connected
+  //if (client)  {
+    //client.setNoDelay(true);
+    //client.setSync(true);
+    //Serial.println("start flush");
+    //client.flush(); // timeout in milliseconds
     //client.print(html_file);
-    client.write(html_file);
+    //Serial.println("start write");
+    //client.write(html_file);
+    //client.print(html_file);
    /* 
     File f = LittleFS.open("/MAIN.html","r");
     if (!f) {
@@ -1253,7 +1261,9 @@ void handleNewHttpClients() {
     //client.print( header );
     //client.print( html_1 ); 
     //Serial.println("New page served");
-  }
+    //Serial.println("start stop");
+    //client.stop(); // timeout in milliseconds
+  //}
 }
 
 void setup() {
@@ -1378,6 +1388,16 @@ void setup() {
   //
   // webSocket
   //
+    // Route for root / web page
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    //request->send(1, html_file, char());
+    //AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", html_file);
+    //response->addHeader("Server","ESP Async Web Server");
+    //request->send(response);
+    request->send(LittleFS, "/MAIN.html");
+    //request->send(LittleFS, "/MAIN.html", String(), false, processor);
+    //request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
   server.begin();
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
@@ -1537,7 +1557,7 @@ void loop() {
   handleThermalRunaway();
   handleModbus();
   handleMainContactor();
-  handleNewHttpClients();
+  //handleNewHttpClients();
 
   //
   // handle heartbeat
