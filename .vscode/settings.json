@@ -8,6 +8,21 @@
     "C_Cpp.intelliSenseEngine": "Tag Parser",
     "files.associations": {
         "queue": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "array": "cpp",
+        "istream": "cpp",
+        "memory": "cpp",
+        "tuple": "cpp",
+        "type_traits": "cpp",
+        "utility": "cpp",
+        "xlocmes": "cpp",
+        "xlocmon": "cpp",
+        "xlocnum": "cpp",
+        "xloctime": "cpp",
+        "xmemory": "cpp",
+        "*.tcc": "cpp",
+        "functional": "cpp",
+        "ostream": "cpp",
+        "xmemory0": "cpp"
     }
 }
