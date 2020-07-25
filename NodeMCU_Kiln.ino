@@ -49,8 +49,10 @@ const char Initialized[] = {"Initialized10"};
 #define MB_CMD_WRITE_EEPROM       6
 #define MB_SCH_SEG_ENABLED        7
 #define MB_SCH_SEG_HOLD_EN        8
-#define MB_CMD_CAL_TEMP_CH0       9
-#define MB_CMD_CAL_TEMP_CH1       10
+#define MB_CMD_CAL_CH0_LOW        9
+#define MB_CMD_CAL_CH1_LOW        10
+#define MB_CMD_CAL_CH0_HIGH       11
+#define MB_CMD_CAL_CH1_HIGH       12
 /* input status (R) */
 #define MB_STS_SSR_01             1
 #define MB_STS_SSR_02             2
@@ -120,6 +122,13 @@ uint16_t cbWriteEeprom(TRegister* reg, uint16_t val) {
   ui_EepromWritten = true;
   ui_WriteEeprom = false;
   return reg->value;
+}
+*/
+
+/*
+uint16_t cbSchedule(TRegister* reg, uint16_t val) {
+  ui_SelectSchedule = COIL_BOOL(val);
+  return val;
 }
 */
 
@@ -230,13 +239,6 @@ bool ui_StsSSRPin_01, ui_StsSSRPin_02;
 uint16_t ui_ChangeSelectedSchedule = 0, ui_ChangeSelectedSegment = 0;
 bool ui_WriteEeprom = false;
 
-/*
-uint16_t cbSchedule(TRegister* reg, uint16_t val) {
-  ui_SelectSchedule = COIL_BOOL(val);
-  return val;
-}
-*/
-
 struct TIME {
   uint16_t hours;
   uint16_t minutes;
@@ -300,7 +302,6 @@ double t_ch1Readings[TEMP_AVG_ARR_SIZE] = {0.0};
 double t_ch0Tot = 0.0, t_ch1Tot = 0.0;
 double t_ch0_fromLow = 1.0, t_ch0_fromHigh = 100.0, t_ch0_toLow = 1.0, t_ch0_toHigh = 100.0;
 double t_ch1_fromLow = 1.0, t_ch1_fromHigh = 100.0, t_ch1_toLow = 1.0, t_ch1_toHigh = 100.0;
-
 void handleTemperature() {
   t_ch0_raw = thermocouple_ch0.readFahrenheit();
   double t_ch0 = map(t_ch0_raw,t_ch0_fromLow,t_ch0_fromHigh,t_ch0_toLow,t_ch0_toHigh); //map(value,fromlow,fromhigh,tolow,tohigh);
@@ -352,10 +353,30 @@ void handleTemperature() {
   }
 }
 
-bool t_ch0_cal = false, t_ch1_cal = false;
+bool t_ch0_cal_low = false, t_ch1_cal_low = false;
+bool t_ch0_cal_high = false, t_ch1_cal_high = false;
 double t_ch0_actual = 100.0, t_ch1_actual = 100.0;
 void handleCal() {
-
+  if (t_ch0_cal_low) {
+    t_ch0_cal_low = false;
+    t_ch0_fromLow = t_ch0_raw;
+    t_ch0_toLow = t_ch0_actual;
+  }
+  if (t_ch1_cal_low) {
+    t_ch1_cal_low = false;
+    t_ch1_fromLow = t_ch1_raw;
+    t_ch1_toLow = t_ch1_actual;
+  }
+  if (t_ch0_cal_high) {
+    t_ch0_cal_high = false;
+    t_ch0_fromHigh = t_ch0_raw;
+    t_ch0_toHigh = t_ch0_actual;
+  }
+  if (t_ch1_cal_high) {
+    t_ch1_cal_high = false;
+    t_ch1_fromHigh = t_ch1_raw;
+    t_ch1_toHigh = t_ch1_actual;
+  }
 }
 
 void handlePID() {
@@ -1030,7 +1051,6 @@ bool RateDifferenceDetected = false;
 double Tolerance_Rate = 20.0, Tolerance_Temperature = 35.0;
 unsigned int ThermalRunawayTemperature_Timer = millis();
 unsigned int ThermalRunawayRate_Timer = millis();
-
 void handleThermalRunaway() {
 
   switch (ProfileSequence) {
@@ -1103,7 +1123,6 @@ void handleMainContactor() {
 }
 
 unsigned long EepromWritten_Timer = millis();
-
 void handleModbus() {
   /* prevent arrays from going out of bounds from ui */
   if (ui_SelectedSchedule >= NUMBER_OF_SCHEDULES) ui_SelectedSchedule = NUMBER_OF_SCHEDULES - 1;
@@ -1123,8 +1142,10 @@ void handleModbus() {
   mb_rtu.Coil(MB_CMD_WRITE_EEPROM, ui_WriteEeprom);
   mb_rtu.Coil(MB_SCH_SEG_ENABLED, Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Enabled);
   mb_rtu.Coil(MB_SCH_SEG_HOLD_EN, Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].HoldEnabled);
-  mb_rtu.Coil(MB_CMD_CAL_TEMP_CH0, t_ch0_cal);
-  mb_rtu.Coil(MB_CMD_CAL_TEMP_CH1, t_ch1_cal);
+  mb_rtu.Coil(MB_CMD_CAL_CH0_LOW, t_ch0_cal_low);
+  mb_rtu.Coil(MB_CMD_CAL_CH1_LOW, t_ch1_cal_low);
+  mb_rtu.Coil(MB_CMD_CAL_CH0_HIGH, t_ch0_cal_high);
+  mb_rtu.Coil(MB_CMD_CAL_CH1_HIGH, t_ch1_cal_high);
   /* input status (R) */
   mb_rtu.Ists(MB_STS_RELEASE_REQ, ui_Segment_HoldReleaseRequest);
   mb_rtu.Ists(MB_STS_SSR_01, ui_StsSSRPin_01);
@@ -1225,8 +1246,10 @@ void handleModbus() {
   ui_WriteEeprom = mb_rtu.Coil(MB_CMD_WRITE_EEPROM);
   Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Enabled = mb_rtu.Coil(MB_SCH_SEG_ENABLED);
   Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].HoldEnabled = mb_rtu.Coil(MB_SCH_SEG_HOLD_EN);
-  t_ch0_cal = mb_rtu.Coil(MB_CMD_CAL_TEMP_CH0);
-  t_ch1_cal = mb_rtu.Coil(MB_CMD_CAL_TEMP_CH1);
+  t_ch0_cal_low = mb_rtu.Coil(MB_CMD_CAL_CH0_LOW);
+  t_ch1_cal_low = mb_rtu.Coil(MB_CMD_CAL_CH1_LOW);
+  t_ch0_cal_high = mb_rtu.Coil(MB_CMD_CAL_CH0_HIGH);
+  t_ch1_cal_high = mb_rtu.Coil(MB_CMD_CAL_CH1_HIGH);
   /* holding registers (RW) */
   Mode = mb_rtu.Hreg(MB_MODE);
   ui_SelectedSchedule = mb_rtu.Hreg(MB_CMD_SELECTED_SCHEDULE);
@@ -1294,7 +1317,7 @@ void setup() {
   
   EEPROM.begin(EEPROM_SIZE);
   /* check if this is a new device */
-  //checkInit();
+  checkInit();
   readSettingsFromEeeprom();
    
   //
@@ -1399,8 +1422,10 @@ void setup() {
   mb_rtu.addCoil(MB_CMD_WRITE_EEPROM);
   mb_rtu.addCoil(MB_SCH_SEG_ENABLED);
   mb_rtu.addCoil(MB_SCH_SEG_HOLD_EN);
-  mb_rtu.addCoil(MB_CMD_CAL_TEMP_CH0);
-  mb_rtu.addCoil(MB_CMD_CAL_TEMP_CH1);
+  mb_rtu.addCoil(MB_CMD_CAL_CH0_LOW);
+  mb_rtu.addCoil(MB_CMD_CAL_CH1_LOW);
+  mb_rtu.addCoil(MB_CMD_CAL_CH0_HIGH);
+  mb_rtu.addCoil(MB_CMD_CAL_CH1_HIGH);
   /* input status (R) */
   mb_rtu.addIsts(MB_STS_SSR_01);
   mb_rtu.addIsts(MB_STS_SSR_02);
@@ -1505,6 +1530,7 @@ void loop() {
   // handle logic
   //
   handleSafetyCircuit();
+  handleCal();
   handleTemperature();
   handlePID();
   setSchedule();
