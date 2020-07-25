@@ -152,8 +152,8 @@ Adafruit_MAX31855 thermocouple_ch1(MAXCS_CH1);
 //
 // defines
 //
-#define WIFI_SSID                 "TP-LINK_E6C9E0" //"Thomas_301"
-#define WIFI_PASSWORD             "C2E6C9E0" //"RS232@12"
+#define WIFI_SSID                 "Thomas_301"
+#define WIFI_PASSWORD             "RS232@12"
 #define WIFI_LISTENING_PORT       80
 #define SERIAL_BAUD_RATE          115200
 #define OTA_PASSWORD              "ProFiBus@12"
@@ -1211,7 +1211,7 @@ void connectWifi(int delaytime) {
 
 void checkWifi() {
   if (WiFi.status() != WL_CONNECTED) { 
-    Serial.println("Reconnecting to Wifi");
+    //Serial.println("Reconnecting to Wifi");
     WiFi.reconnect();
     //connectWifi(0);
   }
