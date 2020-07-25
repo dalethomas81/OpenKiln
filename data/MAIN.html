@@ -192,20 +192,21 @@
     .BTN_PREV:active {
       position:absolute;
     }
-    .BTN_MODE {	box-shadow: 0px 10px 14px -7px #fff6af;
-      background:linear-gradient(to bottom, #ffec64 5%, #ffab23 100%);
-      background-color:#ffec64;
+    .BTN_MODE {	
+      box-shadow: var(--button-box-shadow-green);
+      background:var(--button-background-green);
+      background-color:var(--button-background-color-green);
       border-radius:4px;
-      border:1px solid #ffaa22;
+      border:var(--button-border-green);
       display:inline-block;
       cursor:pointer;
-      color:#333333;
+      color:var(--button-color-green);
       font-family:Arial;
       font-size:13px;
       font-weight:bold;
       padding:6px 12px;
       text-decoration:none;
-      text-shadow:0px 1px 0px #ffee66;
+      text-shadow:var(--button-text-shadow-green);
       text-align: center;
       line-height: 40px;
       position:absolute;
@@ -215,8 +216,8 @@
       height: 40px;
     }
     .BTN_MODE:hover {
-      background:linear-gradient(to bottom, #ffab23 5%, #ffec64 100%);
-	    background-color:#ffab23;
+      background:var(--button-background-hover-green);
+	    background-color:var(--button-background-color-hover-green);
       position:absolute;
     }
     .BTN_MODE:active {
