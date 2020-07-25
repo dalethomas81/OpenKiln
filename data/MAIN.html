@@ -26,7 +26,7 @@
       text-align: center;
       line-height: 40px;
       position:absolute;
-      bottom: 100px;
+      bottom: 165px;
       left: 10px;
       width: 100px;
       height: 40px;
@@ -57,7 +57,7 @@
       text-align: center;
       line-height: 40px;
       position:absolute;
-      bottom: 100px;
+      bottom: 165px;
       left: 145px;
       width: 100px;
       height: 40px;
@@ -70,7 +70,7 @@
     .BTN_STOP:active {
       position:absolute;
     }
-    .BTN_LINKS {
+    .BTN_SCHEDULE {
       box-shadow: 0px 10px 14px -7px #ffffff;
       background:linear-gradient(to bottom, #ededed 5%, #dfdfdf 100%);
       background-color:#ededed;
@@ -89,16 +89,16 @@
       line-height: 40px;
       position:absolute;
       bottom: 100px;
-      right: 10px;
-      width: 100px;
+      left: 10px;
+      width: 235px;
       height: 40px;
     }
-    .BTN_LINKS:hover {
+    .BTN_SCHEDULE:hover {
       background:linear-gradient(to bottom, #dfdfdf 5%, #ededed 100%);
       background-color:#dfdfdf;
       position:absolute;
     }
-    .BTN_LINKS:active {
+    .BTN_SCHEDULE:active {
       position:absolute;
     }
     .BTN_NEXT {
@@ -163,6 +163,36 @@
     .BTN_PREV:active {
       position:absolute;
     }
+    .BTN_MODE {	box-shadow: 0px 10px 14px -7px #fff6af;
+      background:linear-gradient(to bottom, #ffec64 5%, #ffab23 100%);
+      background-color:#ffec64;
+      border-radius:4px;
+      border:1px solid #ffaa22;
+      display:inline-block;
+      cursor:pointer;
+      color:#333333;
+      font-family:Arial;
+      font-size:13px;
+      font-weight:bold;
+      padding:6px 12px;
+      text-decoration:none;
+      text-shadow:0px 1px 0px #ffee66;
+      text-align: center;
+      line-height: 40px;
+      position:absolute;
+      bottom: 230px;
+      left: 10px;
+      width: 235px;
+      height: 40px;
+    }
+    .BTN_MODE:hover {
+      background:linear-gradient(to bottom, #ffab23 5%, #ffec64 100%);
+	    background-color:#ffab23;
+      position:absolute;
+    }
+    .BTN_MODE:active {
+      position:absolute;
+    }
     .blank_row
     {
         height: 20px; /* overwrites any other rules */
@@ -192,7 +222,7 @@
     <h2 style="text-align: center; color:#777777">MAIN</h2>
     <p id='KILN_status' class="debug_status">Kiln is off</p>
     <p class="debug_raw">Received data = <span id='rd'>---</span> </p>
-    <table style="position:absolute; top:80px; right:20px;" id='status'>
+    <table style="position:absolute; top:80px; right:50px;" id='status'>
       <tr>
 			  <td style="text-align: right; font-size: 80%; color:#777777"><label for="STATUS_CURRENT_SCHEDULE_NAME">SCHEDULE: </label></td>
 			  <td style="text-align: left; font-size: 70%; color:#777777"><label id="STATUS_CURRENT_SCHEDULE_NAME">Test Schedule</label></td>
@@ -229,8 +259,9 @@
       <a id='NEXT_BUTTON'class="BTN_NEXT">NEXT</a>
       <a id='PREV_BUTTON'class="BTN_PREV">PREV</a>
       <a id='START_BUTTON'class="BTN_START">START</a>
+      <a id='MODE_BUTTON'class="BTN_MODE">AUTOMATIC</a>
       <a id='STOP_BUTTON'class="BTN_STOP">STOP</a>
-      <a href="/SCHEDULES.html" id='SCHEDULE_BUTTON'class="BTN_LINKS">SCHEDULES</a>
+      <a href="/SCHEDULES.html" id='SCHEDULE_BUTTON'class="BTN_SCHEDULE">SCHEDULES</a>
     </div>
     <br />
    </div>
@@ -253,11 +284,45 @@ function processReceivedCommand(evt)
     if (obj.topic == "status") {
         document.getElementById('STATUS_CURRENT_SCHEDULE_NAME').innerHTML = obj.data.id1;
         document.getElementById('STATUS_CURRENT_SEGMENT_NAME').innerHTML = obj.data.id2;
-        document.getElementById('STATUS_CURRENT_SEGMENT_STATUS').innerHTML = obj.data.id3;
+        var status = "";
+        switch (obj.data.id3) {
+          case "0": // idle
+            status = "IDLE";
+            break;
+          case "1": // ramp
+            status = "RAMP";
+            break;
+          case "2": // soak
+            status = "SOAK";
+            break;
+          case "3": // hold
+            status = "HOLD";
+            break;
+          case "4": // init
+            status = "INIT";
+            break;
+          case "5": // start
+            status = "START";
+            break;
+        }
+        document.getElementById('STATUS_CURRENT_SEGMENT_STATUS').innerHTML = status;
         document.getElementById('STATUS_TIME_REMAINING').innerHTML = obj.data.id4;
         document.getElementById('STATUS_SETPOINT').innerHTML = obj.data.id5;
         document.getElementById('STATUS_UPPER_TEMPERATURE').innerHTML = obj.data.id6;
         document.getElementById('STATUS_LOWER_TEMPERATURE').innerHTML = obj.data.id7;
+        var mode = "";
+        switch (obj.data.id8) {
+          case "1": 
+            mode = "AUTOMATIC";
+            break;
+          case "2": 
+            mode = "MANUAL";
+            break;
+          case "3": 
+            mode = "SIMULATION";
+            break;
+        }
+        document.getElementById('MODE_BUTTON').innerHTML = mode;
 
     }
 }
@@ -277,11 +342,14 @@ function processReceivedCommand(evt)
   function stopButtonClicked()
   {   
     var btn = document.getElementById('STOP_BUTTON')
-    var btnText = btn.textContent || btn.innerText;
-    //document.getElementById('KILN_status').innerHTML = 'Kiln has been stopped';
     sendText('{"topic":"CMD-STOP_PROFILE","val":"true"');
-    // if (btnText ==='Turn on the Kiln') { btn.innerHTML = 'Turn off the Kiln'; document.getElementById('KILN_status').innerHTML = 'Kiln is on';  sendText('1'); }  
-    // else                              { btn.innerHTML = 'Turn on the Kiln';  document.getElementById('KILN_status').innerHTML = 'Kiln is off'; sendText('0'); }
+  }
+
+  document.getElementById('MODE_BUTTON').addEventListener('click', modeButtonClicked);
+  function modeButtonClicked()
+  {   
+    var btn = document.getElementById('MODE_BUTTON')
+    sendText('{"topic":"CMD-CHANGE_MODE","val":"true"');
   }
  
   function sendText(data)

@@ -163,6 +163,7 @@ Adafruit_MAX31855 thermocouple_ch1(MAXCS_CH1);
 #define AUTOMATIC_MODE            1
 #define MANUAL_MODE               2
 #define SIMULATE_MODE             3
+#define NUMER_OF_MODES            3 // make this equal to the last mode to trap errors
 
 #define SAFETY_CIRCUIT_INPUT      D0
 #define MAIN_CONTACTOR_OUTPUT     D4
@@ -1401,6 +1402,14 @@ void setup() {
     //request->send(LittleFS, "/MAIN.html", String(), false, processor);
     //request->send(SPIFFS, "/index.html", String(), false, processor);
   });
+    // Route for root / web page
+  server.on("/SCHEDULES.html", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(LittleFS, "/SCHEDULES.html");
+  });
+    // Route for root / web page
+  server.on("/MAIN.html", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(LittleFS, "/MAIN.html");
+  });
   server.begin();
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
@@ -1604,6 +1613,7 @@ void loop() {
       jsonBuffer_data["id5"] = ui_Setpoint;
       jsonBuffer_data["id6"] = temperature_ch0;
       jsonBuffer_data["id7"] = temperature_ch1;
+      jsonBuffer_data["id8"] = Mode;
       jsonBuffer["topic"] = "status";
       jsonBuffer["data"] = jsonBuffer_data;
       serializeJson(jsonBuffer,databuf);
@@ -1669,6 +1679,13 @@ void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length)
     }
     if(strcmp(topic, "CMD-STOP_PROFILE") == 0) {
       ui_StopProfile = true;
+    }
+    if(strcmp(topic, "CMD-CHANGE_MODE") == 0) {
+      if (Mode >= NUMER_OF_MODES) {
+        Mode = 1;
+      } else {
+        Mode++;
+      }
     }
 
 
