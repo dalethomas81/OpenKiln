@@ -4,6 +4,35 @@
   <meta name='viewport' content='width=device-width, initial-scale=1.0'/>
   <meta charset='utf-8'>
   <style>
+    :root {
+        /* green */
+        --button-box-shadow-green:0px 10px 14px -7px #d9fbbe;
+        --button-background-green:linear-gradient(to bottom, #b8e356 5%, #a5cc52 100%);
+        --button-background-color-green:#b8e356;
+        --button-border-green:1px solid #83c41a;
+        --button-color-green:#ffffff;
+        --button-text-shadow-green:0px 1px 0px #86ae47;
+        --button-background-hover-green:linear-gradient(to bottom, #a5cc52 5%, #b8e356 100%);
+        --button-background-color-hover-green:#a5cc52;
+        /* red */
+        --button-box-shadow-red:0px 10px 14px -7px #f7c5c0;
+        --button-background-red:linear-gradient(to bottom, #fc8d83 5%, #e4685d 100%);
+        --button-background-color-red:#fc8d83;
+        --button-border-red:1px solid #d83526;
+        --button-color-red:#ffffff;
+        --button-text-shadow-red:0px 1px 0px #b23e35;
+        --button-background-hover-red:linear-gradient(to bottom, #e4685d 5%, #fc8d83 100%);
+        --button-background-color-hover-red:#e4685d;
+        /* orange */
+        --button-box-shadow-orange: 0px 10px 14px -7px #fff6af;
+        --button-background-orange:linear-gradient(to bottom, #ffec64 5%, #ffab23 100%);
+        --button-background-color-orange:#ffec64;
+        --button-border-orange:1px solid #ffaa22;
+        --button-color-orange:#333333;
+        --button-text-shadow-orange:0px 1px 0px #ffee66;
+        --button-background-hover-orange:linear-gradient(to bottom, #ffab23 5%, #ffec64 100%);
+        --button-background-color-hover-orange:#ffab23;
+    }
     body     { font-size:100%;} 
     /*#main    { display: table; width: 300px; margin: auto;  padding: 10px 10px 10px 10px; border: 3px solid blue; border-radius: 10px; text-align:center;}*/
     <!--#BTN_LED { width:200px; height:40px; font-size: 110%;  }-->
@@ -286,22 +315,22 @@ function processReceivedCommand(evt)
         document.getElementById('STATUS_CURRENT_SEGMENT_NAME').innerHTML = obj.data.id2;
         var status = "";
         switch (obj.data.id3) {
-          case "0": // idle
+          case 0: // idle
             status = "IDLE";
             break;
-          case "1": // ramp
+          case 1: // ramp
             status = "RAMP";
             break;
-          case "2": // soak
+          case 2: // soak
             status = "SOAK";
             break;
-          case "3": // hold
+          case 3: // hold
             status = "HOLD";
             break;
-          case "4": // init
+          case 4: // init
             status = "INIT";
             break;
-          case "5": // start
+          case 5: // start
             status = "START";
             break;
         }
@@ -312,13 +341,13 @@ function processReceivedCommand(evt)
         document.getElementById('STATUS_LOWER_TEMPERATURE').innerHTML = obj.data.id7;
         var mode = "";
         switch (obj.data.id8) {
-          case "1": 
+          case 1: 
             mode = "AUTOMATIC";
             break;
-          case "2": 
+          case 2: 
             mode = "MANUAL";
             break;
-          case "3": 
+          case 3: 
             mode = "SIMULATION";
             break;
         }
