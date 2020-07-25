@@ -17,7 +17,7 @@
 // sketch will write default settings if new build
 //const char version[] = "build "  __DATE__ " " __TIME__; 
 const char version[] = __DATE__ " " __TIME__; 
-const char Initialized[] = {"Initialized10"};
+const char Initialized[] = {"Initialized01"};
 
 #if !defined(ARRAY_SIZE)
     #define ARRAY_SIZE(x) (sizeof((x)) / sizeof((x)[0]))
@@ -1285,8 +1285,8 @@ void handleModbus() {
   Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].SoakTime = mb_rtu.Hreg(MB_SCH_SEG_SOAK_TIME);
   ui_ChangeSelectedSegment = mb_rtu.Hreg(MB_SCH_SEG_SELECTED);
   ui_ChangeSelectedSchedule = mb_rtu.Hreg(MB_SCH_SELECTED);
-  t_ch0_actual = mb_rtu.Hreg(MB_CAL_TEMP_ACT_CH0);
-  t_ch1_actual = mb_rtu.Hreg(MB_CAL_TEMP_ACT_CH1);
+  t_ch0_actual = HregToDouble(MB_CAL_TEMP_ACT_CH0);
+  t_ch1_actual = HregToDouble(MB_CAL_TEMP_ACT_CH1);
 
   /*************** should create a new routine for things below this line ****************/
   // do not let user change modes while running
