@@ -26,7 +26,7 @@
       text-align: center;
       line-height: 40px;
       position:absolute;
-      bottom: 30px;
+      bottom: 100px;
       left: 10px;
       width: 100px;
       height: 40px;
@@ -57,7 +57,7 @@
       text-align: center;
       line-height: 40px;
       position:absolute;
-      bottom: 30px;
+      bottom: 100px;
       left: 145px;
       width: 100px;
       height: 40px;
@@ -88,7 +88,7 @@
       text-align: center;
       line-height: 40px;
       position:absolute;
-      bottom: 30px;
+      bottom: 100px;
       right: 10px;
       width: 100px;
       height: 40px;
@@ -213,6 +213,10 @@
         <td colspan="2"></td>
       </tr>
       <tr>
+        <td style="text-align: right; font-size: 80%; color:#777777"><label for="STATUS_SETPOINT">SETPOINT: </label></td>
+			  <td style="text-align: left; font-size: 70%; color:#777777"><label id="STATUS_SETPOINT">1000.0</label></td>
+      </tr>
+      <tr>
         <td style="text-align: right; font-size: 80%; color:#777777"><label for="STATUS_UPPER_TEMPERATURE">UPPER TEMP: </label></td>
 			  <td style="text-align: left; font-size: 70%; color:#777777"><label id="STATUS_UPPER_TEMPERATURE">1000.0</label></td>
       </tr>
@@ -250,8 +254,8 @@ function processReceivedCommand(evt)
         document.getElementById('STATUS_CURRENT_SCHEDULE_NAME').innerHTML = obj.data.id1;
         document.getElementById('STATUS_CURRENT_SEGMENT_NAME').innerHTML = obj.data.id2;
         document.getElementById('STATUS_CURRENT_SEGMENT_STATUS').innerHTML = obj.data.id3;
-        // remaining
-        // setpoint
+        document.getElementById('STATUS_TIME_REMAINING').innerHTML = obj.data.id4;
+        document.getElementById('STATUS_SETPOINT').innerHTML = obj.data.id5;
         document.getElementById('STATUS_UPPER_TEMPERATURE').innerHTML = obj.data.id6;
         document.getElementById('STATUS_LOWER_TEMPERATURE').innerHTML = obj.data.id7;
 
@@ -264,7 +268,7 @@ function processReceivedCommand(evt)
     var btn = document.getElementById('START_BUTTON')
     var btnText = btn.textContent || btn.innerText;
     //document.getElementById('KILN_status').innerHTML = 'Kiln has been started';
-    sendText('{"topic":"CMD-START_KILN","val":"true"');
+    sendText('{"topic":"CMD-START_PROFILE","val":"true"');
     // if (btnText ==='Turn on the Kiln') { btn.innerHTML = 'Turn off the Kiln'; document.getElementById('KILN_status').innerHTML = 'Kiln is on';  sendText('1'); }  
     // else                              { btn.innerHTML = 'Turn on the Kiln';  document.getElementById('KILN_status').innerHTML = 'Kiln is off'; sendText('0'); }
   }
@@ -275,7 +279,7 @@ function processReceivedCommand(evt)
     var btn = document.getElementById('STOP_BUTTON')
     var btnText = btn.textContent || btn.innerText;
     //document.getElementById('KILN_status').innerHTML = 'Kiln has been stopped';
-    sendText('{"topic":"CMD-STOP_KILN","val":"true"');
+    sendText('{"topic":"CMD-STOP_PROFILE","val":"true"');
     // if (btnText ==='Turn on the Kiln') { btn.innerHTML = 'Turn off the Kiln'; document.getElementById('KILN_status').innerHTML = 'Kiln is on';  sendText('1'); }  
     // else                              { btn.innerHTML = 'Turn on the Kiln';  document.getElementById('KILN_status').innerHTML = 'Kiln is off'; sendText('0'); }
   }

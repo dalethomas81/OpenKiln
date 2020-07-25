@@ -1574,11 +1574,11 @@ void loop() {
     }
     if (HeartbeatOn) {
       HeartbeatOn = false;
-      Serial.println("Heartbeat Off");
+      //Serial.println("Heartbeat Off");
       webSocket.broadcastTXT("0");
     } else {
       HeartbeatOn = true;
-      Serial.println("Heartbeat On");
+      //Serial.println("Heartbeat On");
 
       /*
       {
