@@ -304,7 +304,6 @@ double HregToDouble(uint16_t reg) {
 }
 
 unsigned long EepromWritten_Timer = millis();
-
 void handleModbus() {
   /* prevent arrays from going out of bounds from ui */
   if (ui_SelectedSchedule >= NUMBER_OF_SCHEDULES) ui_SelectedSchedule = NUMBER_OF_SCHEDULES - 1;
@@ -490,7 +489,6 @@ int idx_ch0Readings = 0, idx_ch1Readings;
 double t_ch0Readings[TEMP_AVG_ARR_SIZE] = {0.0};
 double t_ch1Readings[TEMP_AVG_ARR_SIZE] = {0.0};
 double t_ch0Tot = 0.0, t_ch1Tot = 0.0;
-
 void handleTemperature() {
   double t_ch0 = map(thermocouple_ch0.readFahrenheit(),78.0,3000.0,75.9,3000.0); //map(value,fromlow,fromhigh,tolow,tohigh);
   if (isnan(t_ch0) || t_ch0 < -32.0 || t_ch0 > 5000.0) {
@@ -1127,7 +1125,6 @@ bool RateDifferenceDetected = false;
 double Tolerance_Rate = 20.0, Tolerance_Temperature = 35.0;
 unsigned int ThermalRunawayTemperature_Timer = millis();
 unsigned int ThermalRunawayRate_Timer = millis();
-
 void handleThermalRunaway() {
 
   switch (ProfileSequence) {
@@ -1225,6 +1222,7 @@ void checkWifi() {
   }
 }
 
+/*
 #define MAX_HTML_SIZE 12000
 char html_file[MAX_HTML_SIZE] = {'\0'};
 void readHtmlFile() {
@@ -1242,8 +1240,9 @@ void readHtmlFile() {
       f.close();
     }
 }
+*/
 
-void handleNewHttpClients() {
+//void handleNewHttpClients() {
   //WiFiClient client = server.available(); // Check if a client has connected
   //if (client)  {
     //client.setNoDelay(true);
@@ -1272,17 +1271,9 @@ void handleNewHttpClients() {
     //Serial.println("start stop");
     //client.stop(); // timeout in milliseconds
   //}
-}
+//}
 
-void setup() {
-    Serial.begin(115200, SERIAL_8N1);
-
-    delay(500); // give the serial port time to start up
-
-    EEPROM.begin(EEPROM_SIZE);
-
-    checkInit();
-    readScheduleFromEeeprom();
+void initLittleFS() {
  
     Serial.println(F("Inizializing FS..."));
     if (LittleFS.begin()){
@@ -1295,7 +1286,7 @@ void setup() {
      //LittleFS.format();
  
     // Get all information of your LittleFS
-    FSInfo fs_info;
+    /*FSInfo fs_info;
     LittleFS.info(fs_info);
  
     Serial.println("File system info.");
@@ -1340,28 +1331,19 @@ void setup() {
             Serial.println("0");
         }
     }
+    */
+}
 
-  // read in the html from flash
-  readHtmlFile();
-   
-  //
-  // setup pins
-  //
+void setupPins() {
   //pinMode(ESP_BUILTIN_LED, OUTPUT);
   pinMode(SSR_PIN_01, OUTPUT);
   pinMode(SSR_PIN_02, OUTPUT);
   pinMode(SAFETY_CIRCUIT_INPUT, INPUT);
   pinMode(MAIN_CONTACTOR_OUTPUT, OUTPUT);
   digitalWrite(MAIN_CONTACTOR_OUTPUT, HIGH);
+}
 
-  //
-  // setup timers
-  //
-  timer_heartbeat = millis();
-
-  //
-  // setup PID
-  //
+void setupPID() {
   windowStartTime_01 = millis();
   windowStartTime_02 = millis();
   //initialize the variables we're linked to
@@ -1373,10 +1355,9 @@ void setup() {
   //turn the PID on
   PID_01.SetMode(AUTOMATIC);
   PID_02.SetMode(AUTOMATIC);
+}
 
-  //
-  // setup thermocouple sensors
-  //
+void setupThermocouples() {
   if (!thermocouple_ch0.begin()) {
     //Serial.println("ERROR.");
     while (1) delay(10);
@@ -1388,14 +1369,9 @@ void setup() {
   }
   pinMode(MAXCS_CH1,OUTPUT); //  this is needed AFTER thermocouple.begin because we are using a SPI pin
   
-  //
-  // setup wifi
-  //
-  connectWifi(5000);
-  
-  //
-  // webSocket
-  //
+}
+
+void setupWebsocket() {
     // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){ // https://github.com/me-no-dev/ESPAsyncWebServer
     //request->send(1, html_file, char());
@@ -1420,10 +1396,9 @@ void setup() {
   server.begin();
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
+}
 
-  //
-  // setup OTA
-  //
+void setupOTA(){
   // Port defaults to 8266
   // ArduinoOTA.setPort(8266);
   // Hostname defaults to esp8266-[ChipID]
@@ -1449,10 +1424,9 @@ void setup() {
     else if (error == OTA_END_ERROR) Serial.println("End Failed");
   });
   ArduinoOTA.begin();
+}
 
-  //
-  // setup modbus
-  //
+void setupModbus() {
   //Serial.begin(115200, SERIAL_8N1);
   mb_ip.server();   //Start Modbus IP
   mb_rtu.begin(&Serial);
@@ -1552,6 +1526,76 @@ void setup() {
   uint16_t Ireg(uint16_t offset);
   */
   
+}
+
+void setup() {
+  //
+  // start serial com 
+  //
+  Serial.begin(115200, SERIAL_8N1);
+  delay(500); // give the serial port time to start up
+
+  //
+  // start simulated eeprom
+  //
+  EEPROM.begin(EEPROM_SIZE);
+
+  //
+  // get/set settings
+  //
+  checkInit();
+  readScheduleFromEeeprom();
+
+  //
+  // start up the file system
+  //
+  initLittleFS();
+
+  //
+  // read in the html from flash
+  //
+  //readHtmlFile();
+   
+  //
+  // setup pins
+  //
+  setupPins();
+
+  //
+  // setup timers
+  //
+  timer_heartbeat = millis();
+
+  //
+  // setup PID
+  //
+  setupPID();
+
+  //
+  // setup thermocouple sensors
+  //
+  setupThermocouples();
+
+  //
+  // setup wifi
+  //
+  connectWifi(5000);
+  
+  //
+  // webSocket
+  //
+  setupWebsocket();
+
+  //
+  // setup OTA
+  //
+  setupOTA();
+
+  //
+  // setup modbus
+  //
+  setupModbus();
+
   //
   // done with setup
   //
