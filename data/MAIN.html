@@ -4,40 +4,16 @@
   <meta name='viewport' content='width=device-width, initial-scale=1.0'/>
   <meta charset='utf-8'>
   <style>
+    /* https://www.bestcssbuttongenerator.com/#/4 */
     :root {
-        /* green */
-        --button-box-shadow-green:0px 10px 14px -7px #d9fbbe;
-        --button-background-green:linear-gradient(to bottom, #b8e356 5%, #a5cc52 100%);
-        --button-background-color-green:#b8e356;
-        --button-border-green:1px solid #83c41a;
-        --button-color-green:#ffffff;
-        --button-text-shadow-green:0px 1px 0px #86ae47;
-        --button-background-hover-green:linear-gradient(to bottom, #a5cc52 5%, #b8e356 100%);
-        --button-background-color-hover-green:#a5cc52;
-        /* red */
-        --button-box-shadow-red:0px 10px 14px -7px #f7c5c0;
-        --button-background-red:linear-gradient(to bottom, #fc8d83 5%, #e4685d 100%);
-        --button-background-color-red:#fc8d83;
-        --button-border-red:1px solid #d83526;
-        --button-color-red:#ffffff;
-        --button-text-shadow-red:0px 1px 0px #b23e35;
-        --button-background-hover-red:linear-gradient(to bottom, #e4685d 5%, #fc8d83 100%);
-        --button-background-color-hover-red:#e4685d;
         /* orange */
-        --button-box-shadow-orange: 0px 10px 14px -7px #fff6af;
-        --button-background-orange:linear-gradient(to bottom, #ffec64 5%, #ffab23 100%);
-        --button-background-color-orange:#ffec64;
-        --button-border-orange:1px solid #ffaa22;
-        --button-color-orange:#333333;
-        --button-text-shadow-orange:0px 1px 0px #ffee66;
-        --button-background-hover-orange:linear-gradient(to bottom, #ffab23 5%, #ffec64 100%);
-        --button-background-color-hover-orange:#ffab23;
+        --test-variable: true
     }
     body     { font-size:100%;} 
     /*#main    { display: table; width: 300px; margin: auto;  padding: 10px 10px 10px 10px; border: 3px solid blue; border-radius: 10px; text-align:center;}*/
     <!--#BTN_LED { width:200px; height:40px; font-size: 110%;  }-->
     p        { font-size: 75%; }
-    .BTN_START {
+    .BTN_GREEN {
       box-shadow: 0px 10px 14px -7px #d9fbbe;
       background:linear-gradient(to bottom, #b8e356 5%, #a5cc52 100%);
       background-color:#b8e356;
@@ -54,21 +30,12 @@
       text-shadow:0px 1px 0px #86ae47;
       text-align: center;
       line-height: 40px;
-      position:absolute;
-      bottom: 165px;
-      left: 10px;
-      width: 100px;
-      height: 40px;
     }
-    .BTN_START:hover {
+    .BTN_GREEN:hover {
       background:linear-gradient(to bottom, #a5cc52 5%, #b8e356 100%);
 	    background-color:#a5cc52;
-      position:absolute;
     }
-    .BTN_START:active {
-      position:absolute;
-    }
-    .BTN_STOP {
+    .BTN_RED {
       box-shadow: 0px 10px 14px -7px #f7c5c0;
       background:linear-gradient(to bottom, #fc8d83 5%, #e4685d 100%);
       background-color:#fc8d83;
@@ -85,143 +52,54 @@
       text-shadow:0px 1px 0px #b23e35;
       text-align: center;
       line-height: 40px;
-      position:absolute;
-      bottom: 165px;
-      left: 145px;
-      width: 100px;
-      height: 40px;
     }
-    .BTN_STOP:hover {
+    .BTN_RED:hover {
       background:linear-gradient(to bottom, #e4685d 5%, #fc8d83 100%);
       background-color:#e4685d;
-      position:absolute;
     }
-    .BTN_STOP:active {
-      position:absolute;
+    .BTN_ORANGE {
+      box-shadow: 0px 10px 14px -7px #fff6af;
+      background: linear-gradient(to bottom, #ffec64 5%, #ffab23 100%);
+      background-color: #ffec64;
+      border-radius:4px;
+      border: 1px solid #ffaa22;
+      display:inline-block;
+      cursor:pointer;
+      color: #333333;
+      font-family:Arial;
+      font-size:13px;
+      font-weight:bold;
+      padding:6px 12px;
+      text-decoration:none;
+      text-shadow: 0px 1px 0px #ffee66;
+      text-align: center;
+      line-height: 40px;
     }
-    .BTN_SCHEDULE {
+    .BTN_ORANGE:hover {
+      background: linear-gradient(to bottom, #ffab23 5%, #ffec64 100%);
+      background-color: #ffab23;
+    }
+    .BTN_GREY {
       box-shadow: 0px 10px 14px -7px #ffffff;
-      background:linear-gradient(to bottom, #ededed 5%, #dfdfdf 100%);
-      background-color:#ededed;
+      background: linear-gradient(to bottom, #ededed 5%, #dfdfdf 100%);
+      background-color: #ededed;
       border-radius:4px;
-      border:1px solid #dcdcdc;
+      border: 1px solid #dcdcdc;
       display:inline-block;
       cursor:pointer;
-      color:#777777;
+      color: #777777;
       font-family:Arial;
       font-size:13px;
       font-weight:bold;
       padding:6px 12px;
       text-decoration:none;
-      text-shadow:0px 1px 0px #ffffff;
+      text-shadow: 0px 1px 0px #ffffff;
       text-align: center;
       line-height: 40px;
-      position:absolute;
-      bottom: 100px;
-      left: 10px;
-      width: 235px;
-      height: 40px;
     }
-    .BTN_SCHEDULE:hover {
-      background:linear-gradient(to bottom, #dfdfdf 5%, #ededed 100%);
-      background-color:#dfdfdf;
-      position:absolute;
-    }
-    .BTN_SCHEDULE:active {
-      position:absolute;
-    }
-    .BTN_NEXT {
-      box-shadow: 0px 10px 14px -7px #ffffff;
-      background:linear-gradient(to bottom, #ededed 5%, #dfdfdf 100%);
-      background-color:#ededed;
-      border-radius:4px;
-      border:1px solid #dcdcdc;
-      display:inline-block;
-      cursor:pointer;
-      color:#777777;
-      font-family:Arial;
-      font-size:13px;
-      font-weight:bold;
-      padding:6px 12px;
-      text-decoration:none;
-      text-shadow:0px 1px 0px #ffffff;
-      text-align: center;
-      line-height: 40px;
-      position:absolute;
-      top: 90px;
-      left: 10px;
-      width: 100px;
-      height: 40px;
-    }
-    .BTN_NEXT:hover {
-      background:linear-gradient(to bottom, #dfdfdf 5%, #ededed 100%);
-      background-color:#dfdfdf;
-      position:absolute;
-    }
-    .BTN_NEXT:active {
-      position:absolute;
-    }
-    .BTN_PREV {
-      box-shadow: 0px 10px 14px -7px #ffffff;
-      background:linear-gradient(to bottom, #ededed 5%, #dfdfdf 100%);
-      background-color:#ededed;
-      border-radius:4px;
-      border:1px solid #dcdcdc;
-      display:inline-block;
-      cursor:pointer;
-      color:#777777;
-      font-family:Arial;
-      font-size:13px;
-      font-weight:bold;
-      padding:6px 12px;
-      text-decoration:none;
-      text-shadow:0px 1px 0px #ffffff;
-      text-align: center;
-      line-height: 40px;
-      position:absolute;
-      top: 150px;
-      left: 10px;
-      width: 100px;
-      height: 40px;
-    }
-    .BTN_PREV:hover {
-      background:linear-gradient(to bottom, #dfdfdf 5%, #ededed 100%);
-      background-color:#dfdfdf;
-      position:absolute;
-    }
-    .BTN_PREV:active {
-      position:absolute;
-    }
-    .BTN_MODE {	
-      box-shadow: var(--button-box-shadow-green);
-      background:var(--button-background-green);
-      background-color:var(--button-background-color-green);
-      border-radius:4px;
-      border:var(--button-border-green);
-      display:inline-block;
-      cursor:pointer;
-      color:var(--button-color-green);
-      font-family:Arial;
-      font-size:13px;
-      font-weight:bold;
-      padding:6px 12px;
-      text-decoration:none;
-      text-shadow:var(--button-text-shadow-green);
-      text-align: center;
-      line-height: 40px;
-      position:absolute;
-      bottom: 230px;
-      left: 10px;
-      width: 235px;
-      height: 40px;
-    }
-    .BTN_MODE:hover {
-      background:var(--button-background-hover-green);
-	    background-color:var(--button-background-color-hover-green);
-      position:absolute;
-    }
-    .BTN_MODE:active {
-      position:absolute;
+    .BTN_GREY:hover {
+      background: linear-gradient(to bottom, #dfdfdf 5%, #ededed 100%);
+      background-color: #dfdfdf;
     }
     .blank_row
     {
@@ -286,16 +164,40 @@
       </tr>
     </table>
     <div id='content'>
-      <a id='NEXT_BUTTON'class="BTN_NEXT">NEXT</a>
-      <a id='PREV_BUTTON'class="BTN_PREV">PREV</a>
-      <a id='START_BUTTON'class="BTN_START">START</a>
-      <a id='MODE_BUTTON'class="BTN_MODE">AUTOMATIC</a>
-      <a id='STOP_BUTTON'class="BTN_STOP">STOP</a>
-      <a href="/SCHEDULES.html" id='SCHEDULE_BUTTON'class="BTN_SCHEDULE">SCHEDULES</a>
+      <a 
+        id='NEXT_BUTTON'
+        class="BTN_GREY"
+        style="position:absolute;top:90px;left:10px;width:100px;height:40px;">NEXT</a>
+      <a 
+        id='PREV_BUTTON'
+        class="BTN_GREY"
+        style="position:absolute;top:150px;left:10px;width:100px;height:40px;">PREV</a>
+      <a 
+        id='HOLD_BUTTON'
+        class="BTN_ORANGE"
+        style="position:absolute;bottom:300px;left:10px;width:100px;height:40px;visibility:hidden;">RELEASE HOLD</a>
+      <a 
+        id='START_BUTTON'
+        class="BTN_GREEN"
+        style="position:absolute;bottom:165px;left:10px;width:100px;height:40px;">START</a>
+      <a 
+        id='MODE_BUTTON'
+        class="BTN_GREEN"
+        style="position:absolute;bottom:230px;left:10px;width:235px;height:40px;">AUTOMATIC</a>
+      <a 
+        id='STOP_BUTTON'
+        class="BTN_RED"
+        style="position:absolute;bottom:165px;left:145px;width:100px;height:40px;">STOP</a>
+      <a 
+        href="/SCHEDULES.html" 
+        id='SCHEDULE_BUTTON'
+        class="BTN_GREY"
+        style="position:absolute;bottom:100px;left:10px;width:235px;height:40px;">SCHEDULES</a>
     </div>
     <br />
    </div>
 </body>
+
  
 <script>
   var Socket;
@@ -340,20 +242,26 @@ function processReceivedCommand(evt)
         document.getElementById('STATUS_SETPOINT').innerHTML = obj.data.id5;
         document.getElementById('STATUS_UPPER_TEMPERATURE').innerHTML = obj.data.id6;
         document.getElementById('STATUS_LOWER_TEMPERATURE').innerHTML = obj.data.id7;
-        var mode = "";
+        var modebtn = document.getElementById('MODE_BUTTON');
         switch (obj.data.id8) {
           case 1: 
-            mode = "AUTOMATIC";
+            modebtn.innerHTML = "AUTOMATIC";
+            modebtn.className = "BTN_GREEN"
             break;
           case 2: 
-            mode = "MANUAL";
+            modebtn.innerHTML = "MANUAL";
+            modebtn.className = "BTN_BLUE"
             break;
           case 3: 
-            mode = "SIMULATION";
+            modebtn.innerHTML = "SIMULATION";
+            modebtn.className = "BTN_ORANGE"
             break;
         }
-        document.getElementById('MODE_BUTTON').innerHTML = mode;
-
+        if (obj.data.id7) {
+          document.getElementById('HOLD_BUTTON').style.visibility=true;
+        } else {
+          document.getElementById('HOLD_BUTTON').style.visibility=false;
+        }
     }
 }
  

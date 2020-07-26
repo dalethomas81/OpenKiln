@@ -1584,7 +1584,7 @@ void loop() {
     if (HeartbeatOn) {
       HeartbeatOn = false;
       //Serial.println("Heartbeat Off");
-      webSocket.broadcastTXT("0");
+      //webSocket.broadcastTXT("0");
     } else {
       HeartbeatOn = true;
       //Serial.println("Heartbeat On");
@@ -1593,18 +1593,23 @@ void loop() {
       {
       "topic":"gen",
         "data": {
-          "1": "cone 05 bisque",
-          "2": "candle",
-          "3": 1,
-          "4": "hh:mm:ss",
-          "5": 1200.0,
-          "6": 1234.0,
-          "7": 1234.0
+          "id1": "cone 05 bisque",
+          "id2": "candle",
+          "id3": 1,
+          "id4": "hh:mm:ss",
+          "id5": 1200.0,
+          "id6": 1234.0,
+          "id7": 1234.0,
+          "id8": 1,
+          "id9": false,
+          "id10": false,
+          "id11": true,
+          "id12": -100
         }
       }
       */
-      DynamicJsonDocument  jsonBuffer(250); // https://arduinojson.org/v6/assistant/
-      DynamicJsonDocument  jsonBuffer_data(250); // https://arduinojson.org/v6/assistant/
+      DynamicJsonDocument  jsonBuffer(400); // https://arduinojson.org/v6/assistant/
+      DynamicJsonDocument  jsonBuffer_data(400); // https://arduinojson.org/v6/assistant/
       StreamString databuf;
       jsonBuffer_data["id1"] = LoadedSchedule.Name; 
       jsonBuffer_data["id2"] = LoadedSchedule.Segments[SegmentIndex].Name;
@@ -1614,6 +1619,11 @@ void loop() {
       jsonBuffer_data["id6"] = temperature_ch0;
       jsonBuffer_data["id7"] = temperature_ch1;
       jsonBuffer_data["id8"] = Mode;
+      jsonBuffer_data["id9"] = ui_Segment_HoldReleaseRequest;
+      jsonBuffer_data["id10"] = ThermalRunawayDetected;
+      jsonBuffer_data["id11"] = Safety_Ok;
+      jsonBuffer_data["id12"] = HEARTBEAT_VALUE;
+
       jsonBuffer["topic"] = "status";
       jsonBuffer["data"] = jsonBuffer_data;
       serializeJson(jsonBuffer,databuf);
