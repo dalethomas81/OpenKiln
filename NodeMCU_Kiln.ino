@@ -1667,8 +1667,8 @@ void loop() {
       jsonBuffer_data["id3"] = LoadedSchedule.Segments[SegmentIndex].State;
       jsonBuffer_data["id4"] = "01:06:34"; // Segment_TimeRemaining.hours
       jsonBuffer_data["id5"] = ui_Setpoint;
-      jsonBuffer_data["id6"] = temperature_ch0;
-      jsonBuffer_data["id7"] = temperature_ch1;
+      jsonBuffer_data["id6"] = round(temperature_ch0*10)/10; // shift the original value by one decimal, round it, shift it back
+      jsonBuffer_data["id7"] = round(temperature_ch1*10)/10;
       jsonBuffer_data["id8"] = Mode;
       jsonBuffer_data["id9"] = ui_Segment_HoldReleaseRequest;
       jsonBuffer_data["id10"] = ThermalRunawayDetected;

@@ -8,6 +8,7 @@
     "C_Cpp.intelliSenseEngine": "Tag Parser",
     "files.associations": {
         "queue": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "cmath": "cpp"
     }
 }
