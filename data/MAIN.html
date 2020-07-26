@@ -7,7 +7,12 @@
     :root {
         --test-variable: true
     }
-    body     { font-size:100%;} 
+    body     { font-size:100%;
+              margin: 0;
+              padding: 0;
+              width: 100%;
+              height: 100%;
+              box-sizing: border-box;} 
     p        { font-size: 75%; }
     /* https://www.bestcssbuttongenerator.com/#/4 */
     .BTN_GREEN {
@@ -16,17 +21,13 @@
       background-color:#b8e356;
       border-radius:4px;
       border:1px solid #83c41a;
-      display:inline-block;
       cursor:pointer;
       color:#ffffff;
       font-family:Arial;
       font-size:13px;
       font-weight:bold;
-      padding:6px 12px;
       text-decoration:none;
       text-shadow:0px 1px 0px #86ae47;
-      text-align: center;
-      line-height: 40px;
     }
     .BTN_GREEN:hover {
       background:linear-gradient(to bottom, #a5cc52 5%, #b8e356 100%);
@@ -38,17 +39,13 @@
       background-color:#fc8d83;
       border-radius:4px;
       border:1px solid #d83526;
-      display:inline-block;
       cursor:pointer;
       color:#ffffff;
       font-family:Arial;
       font-size:13px;
       font-weight:bold;
-      padding:6px 12px;
       text-decoration:none;
       text-shadow:0px 1px 0px #b23e35;
-      text-align: center;
-      line-height: 40px;
     }
     .BTN_RED:hover {
       background:linear-gradient(to bottom, #e4685d 5%, #fc8d83 100%);
@@ -60,17 +57,13 @@
       background-color: #ffec64;
       border-radius:4px;
       border: 1px solid #ffaa22;
-      display:inline-block;
       cursor:pointer;
       color: #ffffff;;
       font-family:Arial;
       font-size:13px;
       font-weight:bold;
-      padding:6px 12px;
       text-decoration:none;
       text-shadow: 0px 1px 0px #ffee66;
-      text-align: center;
-      line-height: 40px;
     }
     .BTN_ORANGE:hover {
       background: linear-gradient(to bottom, #ffab23 5%, #ffec64 100%);
@@ -82,17 +75,13 @@
       background-color: #ededed;
       border-radius:4px;
       border: 1px solid #dcdcdc;
-      display:inline-block;
       cursor:pointer;
       color: #777777;
       font-family:Arial;
       font-size:13px;
       font-weight:bold;
-      padding:6px 12px;
       text-decoration:none;
       text-shadow: 0px 1px 0px #ffffff;
-      text-align: center;
-      line-height: 40px;
     }
     .BTN_GREY:hover {
       background: linear-gradient(to bottom, #dfdfdf 5%, #ededed 100%);
@@ -103,17 +92,13 @@
       background-color:#79bbff;
       border-radius:4px;
       border:1px solid #337bc4;
-      display:inline-block;
       cursor:pointer;
       color:#ffffff;
       font-family:Arial;
       font-size:13px;
       font-weight:bold;
-      padding:6px 12px;
       text-decoration:none;
       text-shadow:0px 1px 0px #528ecc;
-      text-align: center;
-      line-height: 40px;
     }
     .BTN_BLUE:hover {
       background:linear-gradient(to bottom, #378de5 5%, #79bbff 100%);
@@ -137,6 +122,15 @@
       position:absolute;
       bottom: 20px;
       left: 10px;
+    }
+    .fullwidth {
+    width:100%;
+    margin-left:0;
+    margin-right:0;
+    padding-left:0;
+    padding-right:0;
+    display:block;
+    text-align:center; 
     }
 
   </style>
@@ -181,39 +175,57 @@
 			  <td style="text-align: left; font-size: 70%; color:#777777"><label id="STATUS_LOWER_TEMPERATURE">1500.0</label></td>
       </tr>
     </table>
-    <div id='content'>
-      <a 
-        id='NEXT_BUTTON'
-        class="BTN_GREY"
-        style="position:absolute;bottom:360px;left:145px;width:100px;height:40px;">NEXT</a>
-      <a 
-        id='PREV_BUTTON'
-        class="BTN_GREY"
-        style="position:absolute;bottom:360px;left:10px;width:100px;height:40px;">PREV</a>
-      <a 
-        id='HOLD_BUTTON'
-        class="BTN_ORANGE"
-        style="position:absolute;bottom:295px;left:10px;width:235px;height:40px;visibility:hidden;">RELEASE HOLD</a>
-      <a 
-        id='START_BUTTON'
-        class="BTN_GREEN"
-        style="position:absolute;bottom:165px;left:10px;width:100px;height:40px;">START</a>
-      <a 
-        id='MODE_BUTTON'
-        class="BTN_GREEN"
-        style="position:absolute;bottom:230px;left:10px;width:235px;height:40px;">AUTOMATIC</a>
-      <a 
-        id='STOP_BUTTON'
-        class="BTN_RED"
-        style="position:absolute;bottom:165px;left:145px;width:100px;height:40px;">STOP</a>
-      <a 
-        href="/SCHEDULES.html" 
-        id='SCHEDULE_BUTTON'
-        class="BTN_GREY"
-        style="position:absolute;bottom:100px;left:10px;width:235px;height:40px;">SCHEDULES</a>
-    </div>
-    <br />
-   </div>
+  </div>
+  <div>
+    <table class="fullwidth" style="position:absolute; bottom:50px;" border=".5" cellspacing="1" cellpadding="3">
+      <tr>
+        <td>
+          <button id='NEXT_BUTTON'
+          class="BTN_GREY"
+          style="width:100%;height:60px;">NEXT</button>
+        </td>
+        <td>
+          <button id='PREV_BUTTON'
+          class="BTN_GREY"
+          style="width:100%;height:60px;">PREV</button>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="2">
+          <button id='HOLD_BUTTON'
+          class="BTN_ORANGE"
+          style="width:100%;height:60px;visibility:hidden;">RELEASE HOLD</button>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="2">
+          <button id='MODE_BUTTON'
+          class="BTN_GREEN"
+          style="width:100%;height:60px;">AUTOMATIC</button>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <button id='START_BUTTON'
+          class="BTN_GREEN"
+          style="width:100%;height:60px;">START</button>
+        </td>
+        <td>
+          <button id='STOP_BUTTON'
+          class="BTN_RED"
+          style="width:100%;height:60px;">STOP</button>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="8">
+          <button href="/SCHEDULES.html" 
+          id='SCHEDULE_BUTTON'
+          class="BTN_GREY"
+          style="width:100%;height:60px;">SCHEDULES</button>
+        </td>
+      </tr>
+    </table>
+  </div>
 </body>
 
  
