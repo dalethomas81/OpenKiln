@@ -617,6 +617,7 @@ void handleProfileSequence(){
       }
       SegmentIndex = 0;
       ui_StartProfile = false;
+      ui_Segment_HoldReleaseRequest = false;
       break;
       
     case SEGMENT_STATE_INIT: /* initialize */
@@ -1665,7 +1666,54 @@ void loop() {
       jsonBuffer_data["id1"] = LoadedSchedule.Name; 
       jsonBuffer_data["id2"] = LoadedSchedule.Segments[SegmentIndex].Name;
       jsonBuffer_data["id3"] = LoadedSchedule.Segments[SegmentIndex].State;
-      jsonBuffer_data["id4"] = "01:06:34"; // Segment_TimeRemaining.hours
+
+      char t_sec[17];
+      itoa(Segment_TimeRemaining.seconds,t_sec, 10);
+      char t_min[17];
+      itoa(Segment_TimeRemaining.minutes,t_min, 10);
+      char t_hour[17];
+      itoa(Segment_TimeRemaining.hours,t_hour, 10);
+
+      int j=0;
+      char time_remaining[55] = {'\0'};
+
+      if (Segment_TimeRemaining.hours < 10) {
+        time_remaining[j] = '0';
+        j++;
+      }
+
+      for (int i=0; t_hour[i] != '\0'; i++) {
+        time_remaining[j] = t_hour[i];
+        j++;
+      }
+
+      time_remaining[j] = ':';
+      j++;
+
+      if (Segment_TimeRemaining.minutes < 10) {
+        time_remaining[j] = '0';
+        j++;
+      }
+
+      for (int i=0; t_min[i] != '\0'; i++) {
+        time_remaining[j] = t_min[i];
+        j++;
+      }
+
+      time_remaining[j] = ':';
+      j++;
+
+      if (Segment_TimeRemaining.seconds < 10) {
+        time_remaining[j] = '0';
+        j++;
+      }
+
+      for (int i=0; t_sec[i] != '\0'; i++) {
+        time_remaining[j] = t_sec[i];
+        j++;
+      }
+
+      jsonBuffer_data["id4"] = time_remaining; // Segment_TimeRemaining.hours
       jsonBuffer_data["id5"] = ui_Setpoint;
       jsonBuffer_data["id6"] = round(temperature_ch0*10)/10; // shift the original value by one decimal, round it, shift it back
       jsonBuffer_data["id7"] = round(temperature_ch1*10)/10;
