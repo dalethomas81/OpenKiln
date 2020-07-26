@@ -430,6 +430,7 @@ void handleModbus() {
   Kp_02 = HregToDouble(MB_PID_P_02);
   Ki_02 = HregToDouble(MB_PID_I_02);
   Kd_02 = HregToDouble(MB_PID_D_02);
+  
   int a = 0;
   for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Name);i=i+2) {
     charAsUnit16 temp;
@@ -440,6 +441,8 @@ void handleModbus() {
     }
     a++;
   }
+  Schedules[ui_ChangeSelectedSchedule].Name[MAX_STRING_LENGTH - 1] = {'\0'}; // make sure terminator is still here!
+  
   int b = 0;
   for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name);i=i+2) {
     charAsUnit16 temp;
@@ -450,6 +453,8 @@ void handleModbus() {
     }
     b++;
   }
+  Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[MAX_STRING_LENGTH - 1] = {'\0'}; // make sure terminator is still here!
+  
   Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Setpoint = HregToDouble(MB_SCH_SEG_SETPOINT);
   Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].RampRate = mb_rtu.Hreg(MB_SCH_SEG_RAMP_RATE);
   Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].SoakTime = mb_rtu.Hreg(MB_SCH_SEG_SOAK_TIME);
@@ -1038,12 +1043,14 @@ void writeScheduleToEeeprom() {
       EEPROM.put(address, Schedules[i].Name[j]);
       address = address + sizeof(Schedules[i].Name[j]);
     }
+    Schedules[i].Name[MAX_STRING_LENGTH - 1] = '\0'; // make sure terminator is still there!
     for (int k=0; k<NUMBER_OF_SEGMENTS; k++) {
       /* segment name */
       for (int x=0; x<sizeof(Schedules[i].Segments[k].Name); x++) {
         EEPROM.put(address, Schedules[i].Segments[k].Name[x]);
         address = address + sizeof(Schedules[i].Segments[k].Name[x]);
       }
+      Schedules[i].Segments[k].Name[MAX_STRING_LENGTH - 1] = '\0'; // make sure terminator is still there!
       /* segment enabled */
       EEPROM.put(address, Schedules[i].Segments[k].Enabled);
       address = address + sizeof(Schedules[i].Segments[k].Enabled);
@@ -1695,6 +1702,23 @@ void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length)
         Mode = 1;
       } else {
         Mode++;
+      }
+    }
+    if(strcmp(topic, "CMD-RELEASE_HOLD") == 0) {
+      ui_Segment_HoldRelease = true;
+    }
+    if(strcmp(topic, "CMD-NEXT_SCHEDULE") == 0) {
+      if (ui_SelectedSchedule >= NUMBER_OF_SCHEDULES -1) {
+        ui_SelectedSchedule = 0;
+      } else {
+        ui_SelectedSchedule++;
+      }
+    }
+    if(strcmp(topic, "CMD-PREV_SCHEDULE") == 0) {
+      if (ui_SelectedSchedule <= 0) {
+        ui_SelectedSchedule = NUMBER_OF_SCHEDULES - 1;
+      } else {
+        ui_SelectedSchedule--;
       }
     }
 

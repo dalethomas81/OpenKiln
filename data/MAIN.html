@@ -65,7 +65,7 @@
       border: 1px solid #ffaa22;
       display:inline-block;
       cursor:pointer;
-      color: #333333;
+      color: #ffffff;;
       font-family:Arial;
       font-size:13px;
       font-weight:bold;
@@ -115,6 +115,8 @@
       padding:6px 12px;
       text-decoration:none;
       text-shadow:0px 1px 0px #528ecc;
+      text-align: center;
+      line-height: 40px;
     }
     .BTN_BLUE:hover {
       background:linear-gradient(to bottom, #378de5 5%, #79bbff 100%);
@@ -136,7 +138,7 @@
     .debug_raw
     {
       position:absolute;
-      bottom: 0px;
+      bottom: 20px;
       left: 10px;
     }
 
@@ -186,15 +188,15 @@
       <a 
         id='NEXT_BUTTON'
         class="BTN_GREY"
-        style="position:absolute;top:90px;left:10px;width:100px;height:40px;">NEXT</a>
+        style="position:absolute;top:250px;left:145px;width:100px;height:40px;">NEXT</a>
       <a 
         id='PREV_BUTTON'
         class="BTN_GREY"
-        style="position:absolute;top:150px;left:10px;width:100px;height:40px;">PREV</a>
+        style="position:absolute;top:250px;left:10px;width:100px;height:40px;">PREV</a>
       <a 
         id='HOLD_BUTTON'
         class="BTN_ORANGE"
-        style="position:absolute;bottom:300px;left:10px;width:100px;height:40px;visibility:hidden;">RELEASE HOLD</a>
+        style="position:absolute;bottom:300px;left:10px;width:235px;height:40px;visibility:hidden;">RELEASE HOLD</a>
       <a 
         id='START_BUTTON'
         class="BTN_GREEN"
@@ -276,10 +278,10 @@ function processReceivedCommand(evt)
             modebtn.className = "BTN_ORANGE"
             break;
         }
-        if (obj.data.id7) {
-          document.getElementById('HOLD_BUTTON').style.visibility=true;
+        if (obj.data.id9) {
+          document.getElementById('HOLD_BUTTON').style.visibility='visible';
         } else {
-          document.getElementById('HOLD_BUTTON').style.visibility=false;
+          document.getElementById('HOLD_BUTTON').style.visibility='hidden';
         }
     }
 }
@@ -298,15 +300,31 @@ function processReceivedCommand(evt)
   document.getElementById('STOP_BUTTON').addEventListener('click', stopButtonClicked);
   function stopButtonClicked()
   {   
-    var btn = document.getElementById('STOP_BUTTON')
     sendText('{"topic":"CMD-STOP_PROFILE","val":"true"');
   }
 
   document.getElementById('MODE_BUTTON').addEventListener('click', modeButtonClicked);
   function modeButtonClicked()
   {   
-    var btn = document.getElementById('MODE_BUTTON')
     sendText('{"topic":"CMD-CHANGE_MODE","val":"true"');
+  }
+
+  document.getElementById('HOLD_BUTTON').addEventListener('click', holdButtonClicked);
+  function holdButtonClicked()
+  {   
+    sendText('{"topic":"CMD-RELEASE_HOLD","val":"true"');
+  }
+
+  document.getElementById('NEXT_BUTTON').addEventListener('click', nextButtonClicked);
+  function nextButtonClicked()
+  {   
+    sendText('{"topic":"CMD-NEXT_SCHEDULE","val":"true"');
+  }
+
+  document.getElementById('PREV_BUTTON').addEventListener('click', prevButtonClicked);
+  function prevButtonClicked()
+  {   
+    sendText('{"topic":"CMD-PREV_SCHEDULE","val":"true"');
   }
  
   function sendText(data)
