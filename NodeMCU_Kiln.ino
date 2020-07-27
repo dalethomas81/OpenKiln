@@ -172,7 +172,7 @@ Adafruit_MAX31855 thermocouple_ch1(MAXCS_CH1);
 
 #define AUTOMATIC_MODE            1
 #define MANUAL_MODE               2
-#define SIMULATE_MODE             3
+#define SIMULATION_MODE             3
 #define NUMER_OF_MODES            3 // make this equal to the last mode to trap errors
 
 #define SAFETY_CIRCUIT_INPUT      D0
@@ -540,7 +540,7 @@ void handleTemperature() {
     // calculate the average:
     temperature_ch1 = t_ch1Tot / TEMP_AVG_ARR_SIZE;
   }
-  if (Mode == SIMULATE_MODE) {
+  if (Mode == SIMULATION_MODE) {
     temperature_ch0 = Setpoint_ch0;
     temperature_ch1 = Setpoint_ch1;
   }
@@ -592,7 +592,7 @@ void handlePID() {
     digitalWrite(SSR_PIN_01, HIGH);
     ui_StsSSRPin_01 = false;
   } else {
-      if (Safety_Ok && !ThermalRunawayDetected) {
+      if (Safety_Ok && !ThermalRunawayDetected && Mode != SIMULATION_MODE) {
         digitalWrite(SSR_PIN_01, LOW); // esp has sinking outputs
         ui_StsSSRPin_01 = true;
       }
@@ -606,12 +606,12 @@ void handlePID() {
     digitalWrite(SSR_PIN_02, HIGH);
     ui_StsSSRPin_02 = false;
   } else {
-      if (Safety_Ok && !ThermalRunawayDetected) {
+      if (Safety_Ok && !ThermalRunawayDetected && Mode != SIMULATION_MODE) {
         digitalWrite(SSR_PIN_02, LOW); // esp has sinking outputs
         ui_StsSSRPin_02 = true;
       }
   }
-  if (!Safety_Ok || ThermalRunawayDetected) { // turn off sinking outputs
+  if (!Safety_Ok || ThermalRunawayDetected || Mode == SIMULATION_MODE) { // turn off sinking outputs
     digitalWrite(SSR_PIN_01, HIGH);
     ui_StsSSRPin_02 = false;
     digitalWrite(SSR_PIN_02, HIGH);
@@ -645,7 +645,7 @@ void handleProfileSequence(){
         Setpoint_ch1 = 0.0;
       }
       if (Safety_Ok && ui_StartProfile == true && 
-          (Mode == AUTOMATIC_MODE || Mode == SIMULATE_MODE) && 
+          (Mode == AUTOMATIC_MODE || Mode == SIMULATION_MODE) && 
           !ThermalRunawayDetected) {
         ProfileSequence = SEGMENT_STATE_INIT;
       }
@@ -900,7 +900,7 @@ void handleProfileSequence(){
       Setpoint_ch0 = ui_Setpoint;
       Setpoint_ch1 = ui_Setpoint;
       break;
-    case SIMULATE_MODE:
+    case SIMULATION_MODE:
       if (ProfileSequence == SEGMENT_STATE_IDLE) {
         // just display which is greater. should both be 0.0
         if (Setpoint_ch0 > Setpoint_ch1) {
@@ -1315,7 +1315,7 @@ void handleThermalRunaway() {
 }
 
 void handleMainContactor() {
-  if (Safety_Ok && !ThermalRunawayDetected) {
+  if (Safety_Ok && !ThermalRunawayDetected && Mode != SIMULATION_MODE) {
     digitalWrite(MAIN_CONTACTOR_OUTPUT, LOW);
   } else {
     digitalWrite(MAIN_CONTACTOR_OUTPUT, HIGH);
