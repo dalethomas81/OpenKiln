@@ -9,6 +9,7 @@
     "files.associations": {
         "queue": "cpp",
         "random": "cpp",
+        "cmath": "cpp"
         "array": "cpp",
         "istream": "cpp",
         "memory": "cpp",

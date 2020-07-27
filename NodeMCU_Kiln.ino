@@ -23,11 +23,19 @@ const char Initialized[] = {"Initialized01"};
     #define ARRAY_SIZE(x) (sizeof((x)) / sizeof((x)[0]))
 #endif
 
+
+
+#include <ArduinoJson.h>
+#include <StreamString.h>
+ 
+
+
+
 #include <ESP8266WiFi.h>
 //#include <ESP8266mDNS.h>
 //#include <WiFiUdp.h>
 #include <ArduinoOTA.h>
-#include "LittleFS.h"
+#include "LittleFS.h" // need the upload tool here https://github.com/earlephilhower/arduino-esp8266littlefs-plugin
 #include <EEPROM.h>
 
 //
@@ -164,12 +172,13 @@ Adafruit_MAX31855 thermocouple_ch1(MAXCS_CH1);
 #define WIFI_LISTENING_PORT       80
 #define SERIAL_BAUD_RATE          115200
 #define OTA_PASSWORD              "ProFiBus@12"
-#define OTA_HOSTNAME              "KilnControls" // having this too long was causing problems with aRest
+#define OTA_HOSTNAME              "KilnControls"
 #define HEARTBEAT_TIME            1000
 
 #define AUTOMATIC_MODE            1
 #define MANUAL_MODE               2
 #define SIMULATE_MODE             3
+#define NUMER_OF_MODES            3 // make this equal to the last mode to trap errors
 
 #define SAFETY_CIRCUIT_INPUT      D0
 #define MAIN_CONTACTOR_OUTPUT     D4
@@ -189,6 +198,14 @@ const int SSR_PIN_02 = D2;
 unsigned long timer_heartbeat;
 bool Safety_Ok = false;
 int SafetyInputLast = 0;
+
+#include <WebSocketsServer.h>  // Websockets by Markus Sattler https://github.com/Links2004/arduinoWebSockets
+//WiFiServer server(WIFI_LISTENING_PORT);
+WebSocketsServer webSocket = WebSocketsServer(WIFI_LISTENING_PORT+1);
+
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
+AsyncWebServer server(WIFI_LISTENING_PORT);
 
 //
 // init wifi
@@ -295,11 +312,193 @@ double HregToDouble(uint16_t reg) {
   return flt.fval;
 }
 
+unsigned long EepromWritten_Timer = millis();
+void handleModbus() {
+  /* prevent arrays from going out of bounds from ui */
+  if (ui_SelectedSchedule >= NUMBER_OF_SCHEDULES) ui_SelectedSchedule = NUMBER_OF_SCHEDULES - 1;
+  if (ui_SelectedSchedule < 0) ui_SelectedSchedule = 0;
+  if (SegmentIndex >= NUMBER_OF_SEGMENTS) SegmentIndex = NUMBER_OF_SEGMENTS - 1;
+  if (SegmentIndex < 0) SegmentIndex = 0;
+  if (ui_ChangeSelectedSchedule >= NUMBER_OF_SCHEDULES) ui_ChangeSelectedSchedule = NUMBER_OF_SCHEDULES - 1;
+  if (ui_ChangeSelectedSchedule < 0) ui_ChangeSelectedSchedule = 0;
+  if (ui_ChangeSelectedSegment >= NUMBER_OF_SEGMENTS) ui_ChangeSelectedSegment = NUMBER_OF_SEGMENTS - 1;
+  if (ui_ChangeSelectedSegment < 0) ui_ChangeSelectedSegment = 0;
+  /* coils (RW) */
+  mb_rtu.Coil(MB_CMD_SELECT_SCHEDULE, ui_SelectSchedule);
+  mb_rtu.Coil(MB_CMD_START_PROFILE, ui_StartProfile);
+  mb_rtu.Coil(MB_CMD_STOP_PROFILE, ui_StopProfile);
+  mb_rtu.Coil(MB_CMD_HOLD_RELEASE, ui_Segment_HoldRelease);
+  mb_rtu.Coil(MB_CMD_THERM_OVERRIDE, ui_ThermalRunawayOverride);
+  mb_rtu.Coil(MB_CMD_WRITE_EEPROM, ui_WriteEeprom);
+  mb_rtu.Coil(MB_SCH_SEG_ENABLED, Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Enabled);
+  mb_rtu.Coil(MB_SCH_SEG_HOLD_EN, Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].HoldEnabled);
+  /* input status (R) */
+  mb_rtu.Ists(MB_STS_RELEASE_REQ, ui_Segment_HoldReleaseRequest);
+  mb_rtu.Ists(MB_STS_SSR_01, ui_StsSSRPin_01);
+  mb_rtu.Ists(MB_STS_SSR_02, ui_StsSSRPin_02);
+  mb_rtu.Ists(MB_STS_SAFETY_OK, Safety_Ok);
+  mb_rtu.Ists(MB_STS_IN_PROCESS, ProfileSequence);
+  mb_rtu.Ists(MB_STS_THERMAL_RUNAWAY, ThermalRunawayDetected);
+  mb_rtu.Ists(MB_STS_EEPROM_WRITTEN, ui_EepromWritten);
+  /* holding registers (RW) */
+  mb_rtu.Hreg(MB_MODE, Mode);
+  mb_rtu.Hreg(MB_CMD_SELECTED_SCHEDULE, ui_SelectedSchedule);
+  DoubleToHreg(MB_CMD_SETPOINT, ui_Setpoint);
+  DoubleToHreg(MB_PID_P_01, Kp_01);
+  DoubleToHreg(MB_PID_I_01, Ki_01);
+  DoubleToHreg(MB_PID_D_01, Kd_01);
+  DoubleToHreg(MB_PID_P_02, Kp_02);
+  DoubleToHreg(MB_PID_I_02, Ki_02);
+  DoubleToHreg(MB_PID_D_02, Kd_02);
+  int y = 0;
+  for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Name);i=i+2) {
+    charAsUnit16 temp;
+    temp.c[0] = Schedules[ui_ChangeSelectedSchedule].Name[i];
+    if (i+1<sizeof(Schedules[ui_ChangeSelectedSchedule].Name)) { // fix struct overwrite issue when MAX_STRING_LENGTH is odd
+      temp.c[1] = Schedules[ui_ChangeSelectedSchedule].Name[i + 1];
+    } else {
+      temp.c[1] = ' ';
+    }
+    mb_rtu.Hreg(MB_SCH_NAME + y, temp.reg);
+    y++;
+  }
+  int x = 0;
+  for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name);i=i+2) {
+    charAsUnit16 temp;
+    temp.c[0] = Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[i];
+    if (i+1<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name)) { // fix struct overwrite issue when MAX_STRING_LENGTH is odd
+      temp.c[1] = Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[i + 1];
+    } else {
+      temp.c[1] = ' ';
+    }
+    mb_rtu.Hreg(MB_SCH_SEG_NAME + x, temp.reg);
+    x++;
+  }
+  DoubleToHreg(MB_SCH_SEG_SETPOINT, Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Setpoint);
+  mb_rtu.Hreg(MB_SCH_SEG_RAMP_RATE, Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].RampRate);
+  mb_rtu.Hreg(MB_SCH_SEG_SOAK_TIME, Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].SoakTime);
+  mb_rtu.Hreg(MB_SCH_SEG_SELECTED, ui_ChangeSelectedSegment);
+  mb_rtu.Hreg(MB_SCH_SELECTED, ui_ChangeSelectedSchedule);
+  /* input registers (R) */
+  mb_rtu.Ireg(MB_HEARTBEAT, HEARTBEAT_VALUE);
+  mb_rtu.Ireg(MB_STS_REMAINING_TIME_H, Segment_TimeRemaining.hours);
+  mb_rtu.Ireg(MB_STS_REMAINING_TIME_M, Segment_TimeRemaining.minutes);
+  mb_rtu.Ireg(MB_STS_REMAINING_TIME_S, Segment_TimeRemaining.seconds);
+  DoubleToIreg(MB_STS_TEMPERATURE_01, temperature_ch0);
+  DoubleToIreg(MB_STS_TEMPERATURE_02, temperature_ch1);
+  DoubleToIreg(MB_STS_PID_01_OUTPUT, Output_01);
+  DoubleToIreg(MB_STS_PID_02_OUTPUT, Output_02);
+  //mb_rtu.Ireg(MB_NUMBER_OF_SCHEDULES, NUMBER_OF_SCHEDULES); // written once in setup
+  //mb_rtu.Ireg(MB_NUMBER_OF_SEGMENTS, NUMBER_OF_SEGMENTS); // written once in setup
+  mb_rtu.Ireg(MB_STS_SEGMENT_STATE, LoadedSchedule.Segments[SegmentIndex].State );
+  int j = 0;
+  for (int i=0; i<sizeof(Schedules[ui_SelectedSchedule].Segments[SegmentIndex].Name);i=i+2) {
+    charAsUnit16 temp;
+    temp.c[0] = Schedules[ui_SelectedSchedule].Segments[SegmentIndex].Name[i];
+    if (i+1<sizeof(Schedules[ui_SelectedSchedule].Segments[SegmentIndex].Name)) { // fix struct overwrite issue when MAX_STRING_LENGTH is odd
+      temp.c[1] = Schedules[ui_SelectedSchedule].Segments[SegmentIndex].Name[i + 1];
+    } else {
+      temp.c[1] = ' ';
+    }
+    mb_rtu.Ireg(MB_STS_SEGMENT_NAME + j, temp.reg);
+    j++;
+  }
+  int k = 0;
+  for (int i=0; i<sizeof(Schedules[ui_SelectedSchedule].Name);i=i+2) {
+    charAsUnit16 temp;
+    temp.c[0] = Schedules[ui_SelectedSchedule].Name[i];
+    if (i+1<sizeof(Schedules[ui_SelectedSchedule].Name)) { // fix struct overwrite issue when MAX_STRING_LENGTH is odd
+      temp.c[1] = Schedules[ui_SelectedSchedule].Name[i+1];
+    } else {
+      temp.c[1] = ' ';
+    }
+    mb_rtu.Ireg(MB_STS_SCHEDULE_NAME + k, temp.reg);
+    k++;
+  }
+  
+  mb_rtu.task();
+  mb_ip.task();
+  
+  /* coils (RW) */
+  ui_SelectSchedule = mb_rtu.Coil(MB_CMD_SELECT_SCHEDULE);
+  ui_StartProfile = mb_rtu.Coil(MB_CMD_START_PROFILE);
+  ui_StopProfile = mb_rtu.Coil(MB_CMD_STOP_PROFILE);
+  ui_Segment_HoldRelease = mb_rtu.Coil(MB_CMD_HOLD_RELEASE);
+  ui_ThermalRunawayOverride = mb_rtu.Coil(MB_CMD_THERM_OVERRIDE);
+  ui_WriteEeprom = mb_rtu.Coil(MB_CMD_WRITE_EEPROM);
+  Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Enabled = mb_rtu.Coil(MB_SCH_SEG_ENABLED);
+  Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].HoldEnabled = mb_rtu.Coil(MB_SCH_SEG_HOLD_EN);
+  /* holding registers (RW) */
+  Mode = mb_rtu.Hreg(MB_MODE);
+  ui_SelectedSchedule = mb_rtu.Hreg(MB_CMD_SELECTED_SCHEDULE);
+  ui_Setpoint = HregToDouble(MB_CMD_SETPOINT);
+  Kp_01 = HregToDouble(MB_PID_P_01);
+  Ki_01 = HregToDouble(MB_PID_I_01);
+  Kd_01 = HregToDouble(MB_PID_D_01);
+  Kp_02 = HregToDouble(MB_PID_P_02);
+  Ki_02 = HregToDouble(MB_PID_I_02);
+  Kd_02 = HregToDouble(MB_PID_D_02);
+  
+  int a = 0;
+  for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Name);i=i+2) {
+    charAsUnit16 temp;
+    temp.reg = mb_rtu.Hreg(MB_SCH_NAME + a);
+    Schedules[ui_ChangeSelectedSchedule].Name[i] = temp.c[0];
+    if (i<sizeof(Schedules[ui_ChangeSelectedSchedule].Name)) { // fix struct overwrite issue when MAX_STRING_LENGTH is odd
+      Schedules[ui_ChangeSelectedSchedule].Name[i + 1] = temp.c[1];
+    }
+    a++;
+  }
+  Schedules[ui_ChangeSelectedSchedule].Name[MAX_STRING_LENGTH - 1] = {'\0'}; // make sure terminator is still here!
+  
+  int b = 0;
+  for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name);i=i+2) {
+    charAsUnit16 temp;
+    temp.reg = mb_rtu.Hreg(MB_SCH_SEG_NAME + b);
+    Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[i] = temp.c[0];
+    if (i+1<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name)) { // fix struct overwrite issue when MAX_STRING_LENGTH is odd
+      Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[i + 1] = temp.c[1];
+    }
+    b++;
+  }
+  Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[MAX_STRING_LENGTH - 1] = {'\0'}; // make sure terminator is still here!
+  
+  Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Setpoint = HregToDouble(MB_SCH_SEG_SETPOINT);
+  Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].RampRate = mb_rtu.Hreg(MB_SCH_SEG_RAMP_RATE);
+  Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].SoakTime = mb_rtu.Hreg(MB_SCH_SEG_SOAK_TIME);
+  ui_ChangeSelectedSegment = mb_rtu.Hreg(MB_SCH_SEG_SELECTED);
+  ui_ChangeSelectedSchedule = mb_rtu.Hreg(MB_SCH_SELECTED);
+
+  /*************** should create a new routine for things below this line ****************/
+  // do not let user change modes while running
+  if (Mode != Mode_Last) {
+    if (ProfileSequence != SEGMENT_STATE_IDLE) {
+      Mode = Mode_Last;
+    } else {
+      Mode_Last = Mode;
+    }
+  }
+
+  // could use callback here....
+  if (ui_WriteEeprom) {
+    ui_WriteEeprom = false;
+    writeScheduleToEeeprom();
+    ui_EepromWritten = true;
+    ui_SelectSchedule = true; // loaded schedule may have changed - go ahead and reload it
+  }
+  // reset the eeprom saved indicator on the hmi
+  if (millis() - EepromWritten_Timer > 3000 || !ui_EepromWritten) {
+    EepromWritten_Timer = millis();
+    if (ui_EepromWritten) ui_EepromWritten = false;
+  }
+}
+
 #define TEMP_AVG_ARR_SIZE 100
 int idx_ch0Readings = 0, idx_ch1Readings;
 double t_ch0Readings[TEMP_AVG_ARR_SIZE] = {0.0};
 double t_ch1Readings[TEMP_AVG_ARR_SIZE] = {0.0};
 double t_ch0Tot = 0.0, t_ch1Tot = 0.0;
+=======
 double t_ch0_fromLow = 1.0, t_ch0_fromHigh = 100.0, t_ch0_toLow = 1.0, t_ch0_toHigh = 100.0;
 double t_ch1_fromLow = 1.0, t_ch1_fromHigh = 100.0, t_ch1_toLow = 1.0, t_ch1_toHigh = 100.0;
 void handleTemperature() {
@@ -458,6 +657,7 @@ void handleProfileSequence(){
       }
       SegmentIndex = 0;
       ui_StartProfile = false;
+      ui_Segment_HoldReleaseRequest = false;
       break;
       
     case SEGMENT_STATE_INIT: /* initialize */
@@ -816,7 +1016,11 @@ void makeInitialized(){
   /*for (byte i=0;i<sizeof(version)-1;i++){
     EEPROM.write(i, version[i]);
   }*/
+
   EEPROM.commit();
+
+  // To format all space in LittleFS
+  LittleFS.format();
 }
 
 void applyDefaultScheduleSettings() {
@@ -895,12 +1099,14 @@ void writeSettingsToEeeprom() {
       EEPROM.put(address, Schedules[i].Name[j]);
       address = address + sizeof(Schedules[i].Name[j]);
     }
+    Schedules[i].Name[MAX_STRING_LENGTH - 1] = '\0'; // make sure terminator is still there!
     for (int k=0; k<NUMBER_OF_SEGMENTS; k++) {
       /* segment name */
       for (int x=0; x<sizeof(Schedules[i].Segments[k].Name); x++) {
         EEPROM.put(address, Schedules[i].Segments[k].Name[x]);
         address = address + sizeof(Schedules[i].Segments[k].Name[x]);
       }
+      Schedules[i].Segments[k].Name[MAX_STRING_LENGTH - 1] = '\0'; // make sure terminator is still there!
       /* segment enabled */
       EEPROM.put(address, Schedules[i].Segments[k].Enabled);
       address = address + sizeof(Schedules[i].Segments[k].Enabled);
@@ -1122,223 +1328,155 @@ void handleMainContactor() {
   }
 }
 
-unsigned long EepromWritten_Timer = millis();
-void handleModbus() {
-  /* prevent arrays from going out of bounds from ui */
-  if (ui_SelectedSchedule >= NUMBER_OF_SCHEDULES) ui_SelectedSchedule = NUMBER_OF_SCHEDULES - 1;
-  if (ui_SelectedSchedule < 0) ui_SelectedSchedule = 0;
-  if (SegmentIndex >= NUMBER_OF_SEGMENTS) SegmentIndex = NUMBER_OF_SEGMENTS - 1;
-  if (SegmentIndex < 0) SegmentIndex = 0;
-  if (ui_ChangeSelectedSchedule >= NUMBER_OF_SCHEDULES) ui_ChangeSelectedSchedule = NUMBER_OF_SCHEDULES - 1;
-  if (ui_ChangeSelectedSchedule < 0) ui_ChangeSelectedSchedule = 0;
-  if (ui_ChangeSelectedSegment >= NUMBER_OF_SEGMENTS) ui_ChangeSelectedSegment = NUMBER_OF_SEGMENTS - 1;
-  if (ui_ChangeSelectedSegment < 0) ui_ChangeSelectedSegment = 0;
-  /* coils (RW) */
-  mb_rtu.Coil(MB_CMD_SELECT_SCHEDULE, ui_SelectSchedule);
-  mb_rtu.Coil(MB_CMD_START_PROFILE, ui_StartProfile);
-  mb_rtu.Coil(MB_CMD_STOP_PROFILE, ui_StopProfile);
-  mb_rtu.Coil(MB_CMD_HOLD_RELEASE, ui_Segment_HoldRelease);
-  mb_rtu.Coil(MB_CMD_THERM_OVERRIDE, ui_ThermalRunawayOverride);
-  mb_rtu.Coil(MB_CMD_WRITE_EEPROM, ui_WriteEeprom);
-  mb_rtu.Coil(MB_SCH_SEG_ENABLED, Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Enabled);
-  mb_rtu.Coil(MB_SCH_SEG_HOLD_EN, Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].HoldEnabled);
-  mb_rtu.Coil(MB_CMD_CAL_CH0_LOW, t_ch0_cal_low);
-  mb_rtu.Coil(MB_CMD_CAL_CH1_LOW, t_ch1_cal_low);
-  mb_rtu.Coil(MB_CMD_CAL_CH0_HIGH, t_ch0_cal_high);
-  mb_rtu.Coil(MB_CMD_CAL_CH1_HIGH, t_ch1_cal_high);
-  /* input status (R) */
-  mb_rtu.Ists(MB_STS_RELEASE_REQ, ui_Segment_HoldReleaseRequest);
-  mb_rtu.Ists(MB_STS_SSR_01, ui_StsSSRPin_01);
-  mb_rtu.Ists(MB_STS_SSR_02, ui_StsSSRPin_02);
-  mb_rtu.Ists(MB_STS_SAFETY_OK, Safety_Ok);
-  mb_rtu.Ists(MB_STS_IN_PROCESS, ProfileSequence);
-  mb_rtu.Ists(MB_STS_THERMAL_RUNAWAY, ThermalRunawayDetected);
-  mb_rtu.Ists(MB_STS_EEPROM_WRITTEN, ui_EepromWritten);
-  /* holding registers (RW) */
-  mb_rtu.Hreg(MB_MODE, Mode);
-  mb_rtu.Hreg(MB_CMD_SELECTED_SCHEDULE, ui_SelectedSchedule);
-  DoubleToHreg(MB_CMD_SETPOINT, ui_Setpoint);
-  DoubleToHreg(MB_PID_P_01, Kp_01);
-  DoubleToHreg(MB_PID_I_01, Ki_01);
-  DoubleToHreg(MB_PID_D_01, Kd_01);
-  DoubleToHreg(MB_PID_P_02, Kp_02);
-  DoubleToHreg(MB_PID_I_02, Ki_02);
-  DoubleToHreg(MB_PID_D_02, Kd_02);
-  DoubleToHreg(MB_CAL_TEMP_ACT_CH0, t_ch0_actual);
-  DoubleToHreg(MB_CAL_TEMP_ACT_CH1, t_ch1_actual);
-  int y = 0;
-  for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Name);i=i+2) {
-    charAsUnit16 temp;
-    temp.c[0] = Schedules[ui_ChangeSelectedSchedule].Name[i];
-    if (i+1<sizeof(Schedules[ui_ChangeSelectedSchedule].Name)) { // fix struct overwrite issue when MAX_STRING_LENGTH is odd
-      temp.c[1] = Schedules[ui_ChangeSelectedSchedule].Name[i + 1];
-    } else {
-      temp.c[1] = ' ';
-    }
-    mb_rtu.Hreg(MB_SCH_NAME + y, temp.reg);
-    y++;
-  }
-  int x = 0;
-  for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name);i=i+2) {
-    charAsUnit16 temp;
-    temp.c[0] = Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[i];
-    if (i+1<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name)) { // fix struct overwrite issue when MAX_STRING_LENGTH is odd
-      temp.c[1] = Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[i + 1];
-    } else {
-      temp.c[1] = ' ';
-    }
-    mb_rtu.Hreg(MB_SCH_SEG_NAME + x, temp.reg);
-    x++;
-  }
-  DoubleToHreg(MB_SCH_SEG_SETPOINT, Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Setpoint);
-  mb_rtu.Hreg(MB_SCH_SEG_RAMP_RATE, Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].RampRate);
-  mb_rtu.Hreg(MB_SCH_SEG_SOAK_TIME, Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].SoakTime);
-  mb_rtu.Hreg(MB_SCH_SEG_SELECTED, ui_ChangeSelectedSegment);
-  mb_rtu.Hreg(MB_SCH_SELECTED, ui_ChangeSelectedSchedule);
-  /* input registers (R) */
-  mb_rtu.Ireg(MB_HEARTBEAT, HEARTBEAT_VALUE);
-  mb_rtu.Ireg(MB_STS_REMAINING_TIME_H, Segment_TimeRemaining.hours);
-  mb_rtu.Ireg(MB_STS_REMAINING_TIME_M, Segment_TimeRemaining.minutes);
-  mb_rtu.Ireg(MB_STS_REMAINING_TIME_S, Segment_TimeRemaining.seconds);
-  DoubleToIreg(MB_STS_TEMPERATURE_01, temperature_ch0);
-  DoubleToIreg(MB_STS_TEMPERATURE_02, temperature_ch1);
-  DoubleToIreg(MB_STS_PID_01_OUTPUT, Output_01);
-  DoubleToIreg(MB_STS_PID_02_OUTPUT, Output_02);
-  //mb_rtu.Ireg(MB_NUMBER_OF_SCHEDULES, NUMBER_OF_SCHEDULES); // written once in setup
-  //mb_rtu.Ireg(MB_NUMBER_OF_SEGMENTS, NUMBER_OF_SEGMENTS); // written once in setup
-  mb_rtu.Ireg(MB_STS_SEGMENT_STATE, LoadedSchedule.Segments[SegmentIndex].State );
-  int j = 0;
-  for (int i=0; i<sizeof(Schedules[ui_SelectedSchedule].Segments[SegmentIndex].Name);i=i+2) {
-    charAsUnit16 temp;
-    temp.c[0] = Schedules[ui_SelectedSchedule].Segments[SegmentIndex].Name[i];
-    if (i+1<sizeof(Schedules[ui_SelectedSchedule].Segments[SegmentIndex].Name)) { // fix struct overwrite issue when MAX_STRING_LENGTH is odd
-      temp.c[1] = Schedules[ui_SelectedSchedule].Segments[SegmentIndex].Name[i + 1];
-    } else {
-      temp.c[1] = ' ';
-    }
-    mb_rtu.Ireg(MB_STS_SEGMENT_NAME + j, temp.reg);
-    j++;
-  }
-  int k = 0;
-  for (int i=0; i<sizeof(Schedules[ui_SelectedSchedule].Name);i=i+2) {
-    charAsUnit16 temp;
-    temp.c[0] = Schedules[ui_SelectedSchedule].Name[i];
-    if (i+1<sizeof(Schedules[ui_SelectedSchedule].Name)) { // fix struct overwrite issue when MAX_STRING_LENGTH is odd
-      temp.c[1] = Schedules[ui_SelectedSchedule].Name[i+1];
-    } else {
-      temp.c[1] = ' ';
-    }
-    mb_rtu.Ireg(MB_STS_SCHEDULE_NAME + k, temp.reg);
-    k++;
-  }
-  DoubleToIreg(MB_STS_TEMP_01_RAW, t_ch0_raw);
-  DoubleToIreg(MB_STS_TEMP_02_RAW, t_ch1_raw);
 
-  mb_rtu.task();
-  mb_ip.task();
-  
-  /* coils (RW) */
-  ui_SelectSchedule = mb_rtu.Coil(MB_CMD_SELECT_SCHEDULE);
-  ui_StartProfile = mb_rtu.Coil(MB_CMD_START_PROFILE);
-  ui_StopProfile = mb_rtu.Coil(MB_CMD_STOP_PROFILE);
-  ui_Segment_HoldRelease = mb_rtu.Coil(MB_CMD_HOLD_RELEASE);
-  ui_ThermalRunawayOverride = mb_rtu.Coil(MB_CMD_THERM_OVERRIDE);
-  ui_WriteEeprom = mb_rtu.Coil(MB_CMD_WRITE_EEPROM);
-  Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Enabled = mb_rtu.Coil(MB_SCH_SEG_ENABLED);
-  Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].HoldEnabled = mb_rtu.Coil(MB_SCH_SEG_HOLD_EN);
-  t_ch0_cal_low = mb_rtu.Coil(MB_CMD_CAL_CH0_LOW);
-  t_ch1_cal_low = mb_rtu.Coil(MB_CMD_CAL_CH1_LOW);
-  t_ch0_cal_high = mb_rtu.Coil(MB_CMD_CAL_CH0_HIGH);
-  t_ch1_cal_high = mb_rtu.Coil(MB_CMD_CAL_CH1_HIGH);
-  /* holding registers (RW) */
-  Mode = mb_rtu.Hreg(MB_MODE);
-  ui_SelectedSchedule = mb_rtu.Hreg(MB_CMD_SELECTED_SCHEDULE);
-  ui_Setpoint = HregToDouble(MB_CMD_SETPOINT);
-  Kp_01 = HregToDouble(MB_PID_P_01);
-  Ki_01 = HregToDouble(MB_PID_I_01);
-  Kd_01 = HregToDouble(MB_PID_D_01);
-  Kp_02 = HregToDouble(MB_PID_P_02);
-  Ki_02 = HregToDouble(MB_PID_I_02);
-  Kd_02 = HregToDouble(MB_PID_D_02);
-  int a = 0;
-  for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Name);i=i+2) {
-    charAsUnit16 temp;
-    temp.reg = mb_rtu.Hreg(MB_SCH_NAME + a);
-    Schedules[ui_ChangeSelectedSchedule].Name[i] = temp.c[0];
-    if (i<sizeof(Schedules[ui_ChangeSelectedSchedule].Name)) { // fix struct overwrite issue when MAX_STRING_LENGTH is odd
-      Schedules[ui_ChangeSelectedSchedule].Name[i + 1] = temp.c[1];
+void connectWifi(int delaytime) { 
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  if (delaytime>0){
+    int TryCount = 0;
+    while (WiFi.waitForConnectResult() != WL_CONNECTED && TryCount < 3) {
+      TryCount++;
+      Serial.println("Wifi Connection Failed! Retrying...");
+      delay(delaytime);
+      //ESP.restart();
     }
-    a++;
   }
-  int b = 0;
-  for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name);i=i+2) {
-    charAsUnit16 temp;
-    temp.reg = mb_rtu.Hreg(MB_SCH_SEG_NAME + b);
-    Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[i] = temp.c[0];
-    if (i+1<sizeof(Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name)) { // fix struct overwrite issue when MAX_STRING_LENGTH is odd
-      Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Name[i + 1] = temp.c[1];
-    }
-    b++;
+  if (WiFi.status() == WL_CONNECTED) {
+    WiFi.setAutoReconnect(true);
+    WiFi.persistent(true);
   }
-  Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Setpoint = HregToDouble(MB_SCH_SEG_SETPOINT);
-  Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].RampRate = mb_rtu.Hreg(MB_SCH_SEG_RAMP_RATE);
-  Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].SoakTime = mb_rtu.Hreg(MB_SCH_SEG_SOAK_TIME);
-  ui_ChangeSelectedSegment = mb_rtu.Hreg(MB_SCH_SEG_SELECTED);
-  ui_ChangeSelectedSchedule = mb_rtu.Hreg(MB_SCH_SELECTED);
-  t_ch0_actual = HregToDouble(MB_CAL_TEMP_ACT_CH0);
-  t_ch1_actual = HregToDouble(MB_CAL_TEMP_ACT_CH1);
+} 
 
-  /*************** should create a new routine for things below this line ****************/
-  // do not let user change modes while running
-  if (Mode != Mode_Last) {
-    if (ProfileSequence != SEGMENT_STATE_IDLE) {
-      Mode = Mode_Last;
-    } else {
-      Mode_Last = Mode;
-    }
-  }
-
-  // could use callback here....
-  if (ui_WriteEeprom) {
-    ui_WriteEeprom = false;
-    writeSettingsToEeeprom();
-    ui_EepromWritten = true;
-    ui_SelectSchedule = true; // loaded schedule may have changed - go ahead and reload it
-  }
-  // reset the eeprom saved indicator on the hmi
-  if (millis() - EepromWritten_Timer > 3000 || !ui_EepromWritten) {
-    EepromWritten_Timer = millis();
-    if (ui_EepromWritten) ui_EepromWritten = false;
+void checkWifi() {
+  if (WiFi.status() != WL_CONNECTED) { 
+    //Serial.println("Reconnecting to Wifi");
+    WiFi.reconnect();
+    //connectWifi(0);
   }
 }
 
-void setup() {
-  Serial.begin(115200, SERIAL_8N1);
-  
-  EEPROM.begin(EEPROM_SIZE);
-  /* check if this is a new device */
-  checkInit();
-  readSettingsFromEeeprom();
-   
-  //
-  // setup pins
-  //
+/*
+#define MAX_HTML_SIZE 12000
+char html_file[MAX_HTML_SIZE] = {'\0'};
+void readHtmlFile() {
+    File f = LittleFS.open("/MAIN.html","r");
+    if (!f) {
+      Serial.println("Error opening file.");
+    } else {
+      int i=0;
+      while (f.available()) {
+        html_file[i] = f.read();
+        i++;
+        //client.write( f.read() );
+        //Serial.write( f.read() );
+      }
+      f.close();
+    }
+}
+*/
+
+//void handleNewHttpClients() {
+  //WiFiClient client = server.available(); // Check if a client has connected
+  //if (client)  {
+    //client.setNoDelay(true);
+    //client.setSync(true);
+    //Serial.println("start flush");
+    //client.flush(); // timeout in milliseconds
+    //client.print(html_file);
+    //Serial.println("start write");
+    //client.write(html_file);
+    //client.print(html_file);
+   /* 
+    File f = LittleFS.open("/MAIN.html","r");
+    if (!f) {
+      Serial.println("Error opening file.");
+    } else {
+      while (f.available()) {
+        client.write( f.read() );
+        //Serial.write( f.read() );
+      }
+      f.close();
+    }
+    */
+    //client.print( header );
+    //client.print( html_1 ); 
+    //Serial.println("New page served");
+    //Serial.println("start stop");
+    //client.stop(); // timeout in milliseconds
+  //}
+//}
+
+void initLittleFS() {
+ 
+    Serial.println(F("Inizializing FS..."));
+    if (LittleFS.begin()){
+        Serial.println(F("done."));
+    }else{
+        Serial.println(F("fail."));
+    }
+ 
+    // To format all space in LittleFS
+     //LittleFS.format();
+ 
+    // Get all information of your LittleFS
+    /*FSInfo fs_info;
+    LittleFS.info(fs_info);
+ 
+    Serial.println("File system info.");
+ 
+    Serial.print("Total space:      ");
+    Serial.print(fs_info.totalBytes);
+    Serial.println("byte");
+ 
+    Serial.print("Total space used: ");
+    Serial.print(fs_info.usedBytes);
+    Serial.println("byte");
+ 
+    Serial.print("Block size:       ");
+    Serial.print(fs_info.blockSize);
+    Serial.println("byte");
+ 
+    Serial.print("Page size:        ");
+    Serial.print(fs_info.totalBytes);
+    Serial.println("byte");
+ 
+    Serial.print("Max open files:   ");
+    Serial.println(fs_info.maxOpenFiles);
+ 
+    Serial.print("Max path length:  ");
+    Serial.println(fs_info.maxPathLength);
+ 
+    Serial.println();
+ 
+    // Open dir folder
+    Dir dir = LittleFS.openDir("/");
+    // Cycle all the content
+    while (dir.next()) {
+        // get filename
+        Serial.print(dir.fileName());
+        Serial.print(" - ");
+        // If element have a size display It else write 0
+        if(dir.fileSize()) {
+            File f = dir.openFile("r");
+            Serial.println(f.size());
+            f.close();
+        }else{
+            Serial.println("0");
+        }
+    }
+    */
+}
+
+void setupPins() {
   //pinMode(ESP_BUILTIN_LED, OUTPUT);
   pinMode(SSR_PIN_01, OUTPUT);
   pinMode(SSR_PIN_02, OUTPUT);
   pinMode(SAFETY_CIRCUIT_INPUT, INPUT);
   pinMode(MAIN_CONTACTOR_OUTPUT, OUTPUT);
-  //digitalWrite(MAIN_CONTACTOR_OUTPUT, LOW);
   digitalWrite(MAIN_CONTACTOR_OUTPUT, HIGH);
-  
-  //
-  // setup timers
-  //
-  timer_heartbeat = millis();
+}
 
-  //
-  // setup PID
-  //
+void setupPID() {
   windowStartTime_01 = millis();
   windowStartTime_02 = millis();
   //initialize the variables we're linked to
@@ -1350,10 +1488,9 @@ void setup() {
   //turn the PID on
   PID_01.SetMode(AUTOMATIC);
   PID_02.SetMode(AUTOMATIC);
+}
 
-  //
-  // setup thermocouple sensors
-  //
+void setupThermocouples() {
   if (!thermocouple_ch0.begin()) {
     //Serial.println("ERROR.");
     while (1) delay(10);
@@ -1365,22 +1502,36 @@ void setup() {
   }
   pinMode(MAXCS_CH1,OUTPUT); //  this is needed AFTER thermocouple.begin because we are using a SPI pin
   
-  //
-  // setup wifi
-  //
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  int TryCount = 0;
-  while (WiFi.waitForConnectResult() != WL_CONNECTED && TryCount < 3) {
-    TryCount++;
-    Serial.println("Wifi Connection Failed! Retrying...");
-    delay(5000);
-    //ESP.restart();
-  }
+}
 
-  //
-  // setup OTA
-  //
+void setupWebsocket() {
+    // Route for root / web page
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){ // https://github.com/me-no-dev/ESPAsyncWebServer
+    //request->send(1, html_file, char());
+    //AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", html_file);
+    //response->addHeader("Server","ESP Async Web Server");
+    //request->send(response);
+
+    //request->send_P(200, "text/html", html_file);
+    request->send(LittleFS, "/MAIN.html");
+
+    //request->send(LittleFS, "/MAIN.html", String(), false, processor);
+    //request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
+    // Route for root / web page
+  server.on("/SCHEDULES.html", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(LittleFS, "/SCHEDULES.html");
+  });
+    // Route for root / web page
+  server.on("/MAIN.html", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(LittleFS, "/MAIN.html");
+  });
+  server.begin();
+  webSocket.begin();
+  webSocket.onEvent(webSocketEvent);
+}
+
+void setupOTA(){
   // Port defaults to 8266
   // ArduinoOTA.setPort(8266);
   // Hostname defaults to esp8266-[ChipID]
@@ -1388,6 +1539,7 @@ void setup() {
   // No authentication by default
   //ArduinoOTA.setPassword((const char *)OTA_PASSWORD);
   ArduinoOTA.onStart([]() {
+    LittleFS.end();
     Serial.println("Start");
   });
   ArduinoOTA.onEnd([]() {
@@ -1405,10 +1557,9 @@ void setup() {
     else if (error == OTA_END_ERROR) Serial.println("End Failed");
   });
   ArduinoOTA.begin();
+}
 
-  //
-  // setup modbus
-  //
+void setupModbus() {
   //Serial.begin(115200, SERIAL_8N1);
   mb_ip.server();   //Start Modbus IP
   mb_rtu.begin(&Serial);
@@ -1516,6 +1667,76 @@ void setup() {
   uint16_t Ireg(uint16_t offset);
   */
   
+}
+
+void setup() {
+  //
+  // start serial com 
+  //
+  Serial.begin(115200, SERIAL_8N1);
+  delay(500); // give the serial port time to start up
+
+  //
+  // start simulated eeprom
+  //
+  EEPROM.begin(EEPROM_SIZE);
+
+  //
+  // get/set settings
+  //
+  checkInit();
+  readScheduleFromEeeprom();
+
+  //
+  // start up the file system
+  //
+  initLittleFS();
+
+  //
+  // read in the html from flash
+  //
+  //readHtmlFile();
+   
+  //
+  // setup pins
+  //
+  setupPins();
+
+  //
+  // setup timers
+  //
+  timer_heartbeat = millis();
+
+  //
+  // setup PID
+  //
+  setupPID();
+
+  //
+  // setup thermocouple sensors
+  //
+  setupThermocouples();
+
+  //
+  // setup wifi
+  //
+  connectWifi(5000);
+  
+  //
+  // webSocket
+  //
+  setupWebsocket();
+
+  //
+  // setup OTA
+  //
+  setupOTA();
+
+  //
+  // setup modbus
+  //
+  setupModbus();
+
   //
   // done with setup
   //
@@ -1524,11 +1745,14 @@ void setup() {
   Serial.println(WiFi.localIP());
 }
 
+bool HeartbeatOn = false;
+
 void loop() {
 
   //
   // handle logic
   //
+  checkWifi();
   handleSafetyCircuit();
   handleCal();
   handleTemperature();
@@ -1538,6 +1762,7 @@ void loop() {
   handleThermalRunaway();
   handleModbus();
   handleMainContactor();
+  //handleNewHttpClients();
 
   //
   // handle heartbeat
@@ -1549,7 +1774,114 @@ void loop() {
     } else {
       HEARTBEAT_VALUE = HEARTBEAT_VALUE + 1;
     }
+    if (HeartbeatOn) {
+      HeartbeatOn = false;
+      //Serial.println("Heartbeat Off");
+      //webSocket.broadcastTXT("0");
+    } else {
+      HeartbeatOn = true;
+      //Serial.println("Heartbeat On");
+
+      /*
+      {
+      "topic":"gen",
+        "data": {
+          "id1": "cone 05 bisque",
+          "id2": "candle",
+          "id3": 1,
+          "id4": "hh:mm:ss",
+          "id5": 1200.0,
+          "id6": 1234.0,
+          "id7": 1234.0,
+          "id8": 1,
+          "id9": false,
+          "id10": false,
+          "id11": true,
+          "id12": -100
+        }
+      }
+      */
+      DynamicJsonDocument  jsonBuffer(400); // https://arduinojson.org/v6/assistant/
+      DynamicJsonDocument  jsonBuffer_data(400); // https://arduinojson.org/v6/assistant/
+      StreamString databuf;
+      jsonBuffer_data["id1"] = LoadedSchedule.Name; 
+      jsonBuffer_data["id2"] = LoadedSchedule.Segments[SegmentIndex].Name;
+      jsonBuffer_data["id3"] = LoadedSchedule.Segments[SegmentIndex].State;
+
+      char t_sec[17];
+      itoa(Segment_TimeRemaining.seconds,t_sec, 10);
+      char t_min[17];
+      itoa(Segment_TimeRemaining.minutes,t_min, 10);
+      char t_hour[17];
+      itoa(Segment_TimeRemaining.hours,t_hour, 10);
+
+      int j=0;
+      char time_remaining[55] = {'\0'};
+
+      if (Segment_TimeRemaining.hours < 10) {
+        time_remaining[j] = '0';
+        j++;
+      }
+
+      for (int i=0; t_hour[i] != '\0'; i++) {
+        time_remaining[j] = t_hour[i];
+        j++;
+      }
+
+      time_remaining[j] = ':';
+      j++;
+
+      if (Segment_TimeRemaining.minutes < 10) {
+        time_remaining[j] = '0';
+        j++;
+      }
+
+      for (int i=0; t_min[i] != '\0'; i++) {
+        time_remaining[j] = t_min[i];
+        j++;
+      }
+
+      time_remaining[j] = ':';
+      j++;
+
+      if (Segment_TimeRemaining.seconds < 10) {
+        time_remaining[j] = '0';
+        j++;
+      }
+
+      for (int i=0; t_sec[i] != '\0'; i++) {
+        time_remaining[j] = t_sec[i];
+        j++;
+      }
+
+      jsonBuffer_data["id4"] = time_remaining; // Segment_TimeRemaining.hours
+      jsonBuffer_data["id5"] = ui_Setpoint;
+      jsonBuffer_data["id6"] = round(temperature_ch0*10)/10; // shift the original value by one decimal, round it, shift it back
+      jsonBuffer_data["id7"] = round(temperature_ch1*10)/10;
+      jsonBuffer_data["id8"] = Mode;
+      jsonBuffer_data["id9"] = ui_Segment_HoldReleaseRequest;
+      jsonBuffer_data["id10"] = ThermalRunawayDetected;
+      jsonBuffer_data["id11"] = Safety_Ok;
+      jsonBuffer_data["id12"] = HEARTBEAT_VALUE;
+
+      jsonBuffer["topic"] = "status";
+      jsonBuffer["data"] = jsonBuffer_data;
+      serializeJson(jsonBuffer,databuf);
+      webSocket.broadcastTXT(databuf);
+/*
+      jsonBuffer["topic"] = "STS-UPPER_TEMP";
+      jsonBuffer["val"] = 123.0;//temperature_ch0;
+      serializeJson(jsonBuffer,databuf);
+      webSocket.broadcastTXT(databuf);
+
+      jsonBuffer["topic"] = "STS-LOWER_TEMP";
+      jsonBuffer["val"] = 321.0;//temperature_ch1;
+      serializeJson(jsonBuffer,databuf);
+      webSocket.broadcastTXT(databuf);
+*/
+    }
   }
+  webSocket.loop();
   
   //
   // handle OTA requests
@@ -1558,3 +1890,80 @@ void loop() {
   
   yield();
 }
+
+void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length)
+{
+  // num - number of connections. maximum of 5
+  /*
+    type is the response type:
+    0 – WStype_ERROR
+    1 – WStype_DISCONNECTED
+    2 – WStype_CONNECTED
+    3 – WStype_TEXT
+    4 – WStype_BIN
+    5 – WStype_FRAGMENT_TEXT_START
+    6 – WStype_FRAGMENT_BIN_START
+    7 – WStype_FRAGMENT
+    8 – WStype_FRAGMENT_FIN
+    9 – WStype_PING
+    10- WStype_PONG - reply from ping
+  */
+  // payload - the data (note this is a pointer)
+
+  if(type == WStype_TEXT)
+  {
+    /*String payload_str = String((char*) payload);
+
+    if(payload_str == "CMD-START_PROFILE") {
+      ui_StartProfile = true;
+    }
+    if(payload_str == "CMD-STOP_PROFILE") {
+      ui_StopProfile = true;
+    }*/
+    
+    DynamicJsonDocument jsonBuffer(128);
+    deserializeJson(jsonBuffer, payload);
+    const char* topic = jsonBuffer["topic"];
+    if(strcmp(topic, "CMD-START_PROFILE") == 0) {
+      ui_StartProfile = true;
+    }
+    if(strcmp(topic, "CMD-STOP_PROFILE") == 0) {
+      ui_StopProfile = true;
+    }
+    if(strcmp(topic, "CMD-CHANGE_MODE") == 0) {
+      if (Mode >= NUMER_OF_MODES) {
+        Mode = 1;
+      } else {
+        Mode++;
+      }
+    }
+    if(strcmp(topic, "CMD-RELEASE_HOLD") == 0) {
+      ui_Segment_HoldRelease = true;
+    }
+    if(strcmp(topic, "CMD-NEXT_SCHEDULE") == 0) {
+      if (ui_SelectedSchedule >= NUMBER_OF_SCHEDULES -1) {
+        ui_SelectedSchedule = 0;
+      } else {
+        ui_SelectedSchedule++;
+      }
+    }
+    if(strcmp(topic, "CMD-PREV_SCHEDULE") == 0) {
+      if (ui_SelectedSchedule <= 0) {
+        ui_SelectedSchedule = NUMBER_OF_SCHEDULES - 1;
+      } else {
+        ui_SelectedSchedule--;
+      }
+    }
+
+
+  } 
+    else  // event is not TEXT. Display the details in the serial monitor
+  {
+    Serial.print("WStype = ");   Serial.println(type);  
+    Serial.print("WS payload = ");
+    // since payload is a pointer we need to type cast to char
+    for(int i = 0; i < length; i++) { Serial.print((char) payload[i]); }
+    Serial.println();
+  }
+}
+

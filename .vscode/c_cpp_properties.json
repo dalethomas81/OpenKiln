@@ -9,6 +9,7 @@
                 "/Users/Dale/Library/Arduino15/packages/esp8266/hardware/esp8266/2.7.2/**",
                 "/Users/Dale/Library/Arduino15/packages/esp8266/tools/**",
                 "/Users/Dale/Documents/Arduino/libraries/**",
+                "C:\\Users\\dale\\Source\\Repos\\vscode\\NodeMCU_Kiln\\libraries\\**",
                 "C:\\Users\\dale\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.2\\**",
                 "C:\\Users\\dale\\AppData\\Local\\Arduino15\\packages\\esp8266\\tools\\**",
                 "C:\\Users\\dale\\Documents\\Arduino\\**"
