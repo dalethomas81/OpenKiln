@@ -123,12 +123,14 @@
       width: 50%;
       float: left;
       text-align: right;
+      font-weight: bold;
       color: #777777;
     }
     .status {
       width: 50%;
       float: right;
       text-align: left;
+      text-indent: 4px;
       color: #777777;
     }
 
@@ -140,7 +142,7 @@
 
   <div id='main'>
     <h2 style="text-align: center; color:#777777">MAIN</h2>
-    <p class="debug_raw">Received data = <span id='rd'>---</span> </p>
+    <p class="debug_raw">Received data = <span style="word-wrap:break-word"; id='rd'>---</span> </p>
   </div>
 
   <div class="midbuttons" style="position:absolute; top:80px;" >
@@ -203,10 +205,10 @@
       </div>
     </div>
     <div style="width:100%;">
-      <a href="/SCHEDULES.html" 
+      <button onclick="window.location.href='/SCHEDULES.html';"
       id='SCHEDULE_BUTTON'
-      class="button BTN_GREY"
-      style="width:100%;height:60px;">SCHEDULES</a>
+      class="BTN_GREY"
+      style="width:100%;height:60px;">SCHEDULES</button>
     </div>
   </div>
 
