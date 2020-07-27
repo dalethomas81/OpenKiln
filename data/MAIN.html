@@ -104,19 +104,6 @@
       background:linear-gradient(to bottom, #378de5 5%, #79bbff 100%);
 	    background-color:#378de5;
     }
-    .blank_row
-    {
-        height: 20px; /* overwrites any other rules */
-        background-color: #FFFFFF;
-    }
-    .debug_status
-    {
-      position:absolute;
-      top: 5px;
-      left: 10px;
-      width: 100px;
-      height: 40px;
-    }
     .debug_raw
     {
       position:absolute;
@@ -132,48 +119,52 @@
     display:inline-block;
     text-align:center; 
     }
+    .statuslabel {
+      width: 50%;
+      float: left;
+      text-align: right;
+      color: #777777;
+    }
+    .status {
+      width: 50%;
+      float: right;
+      text-align: left;
+      color: #777777;
+    }
 
   </style>
 <title>Kiln Controls</title>
+
 </head>
 <body>
+
   <div id='main'>
     <h2 style="text-align: center; color:#777777">MAIN</h2>
-    <p id='KILN_status' class="debug_status">Kiln is off</p>
     <p class="debug_raw">Received data = <span id='rd'>---</span> </p>
-    <table style="position:absolute; top:80px; right:50px;" id='status'>
-      <tr>
-			  <td style="text-align: right; font-size: 80%; color:#777777"><label for="STATUS_CURRENT_SCHEDULE_NAME">SCHEDULE: </label></td>
-			  <td style="text-align: left; font-size: 70%; color:#777777"><label id="STATUS_CURRENT_SCHEDULE_NAME">Test Schedule</label></td>
-      </tr>
-      <tr>
-        <td style="text-align: right; font-size: 80%; color:#777777"><label for="STATUS_CURRENT_SEGMENT_NAME">SEGMENT: </label></td>
-        <td style="text-align: left; font-size: 70%; color:#777777"><label id="STATUS_CURRENT_SEGMENT_NAME">Test Segment</label></td>
-      </tr>
-      <tr>
-        <td style="text-align: right; font-size: 80%; color:#777777"><label for="STATUS_CURRENT_SEGMENT_STATUS">STATUS: </label></td>
-			  <td style="text-align: left; font-size: 70%; color:#777777"><label id="STATUS_CURRENT_SEGMENT_STATUS">Idle</label></td>
-      </tr>
-      <tr>
-        <td style="text-align: right; font-size: 80%; color:#777777"><label for="STATUS_TIME_REMAINING">REMAINING: </label></td>
-        <td style="text-align: left; font-size: 70%; color:#777777"><label id="STATUS_TIME_REMAINING">00:00:00</label></td>
-      </tr>
-      <tr class="blank_row">
-        <td colspan="2"></td>
-      </tr>
-      <tr>
-        <td style="text-align: right; font-size: 80%; color:#777777"><label for="STATUS_SETPOINT">SETPOINT: </label></td>
-			  <td style="text-align: left; font-size: 70%; color:#777777"><label id="STATUS_SETPOINT">1000.0</label></td>
-      </tr>
-      <tr>
-        <td style="text-align: right; font-size: 80%; color:#777777"><label for="STATUS_UPPER_TEMPERATURE">UPPER TEMP: </label></td>
-			  <td style="text-align: left; font-size: 70%; color:#777777"><label id="STATUS_UPPER_TEMPERATURE">1000.0</label></td>
-      </tr>
-      <tr>
-        <td style="text-align: right; font-size: 80%; color:#777777"><label for="STATUS_LOWER_TEMPERATURE">LOWER TEMP: </label></td>
-			  <td style="text-align: left; font-size: 70%; color:#777777"><label id="STATUS_LOWER_TEMPERATURE">1500.0</label></td>
-      </tr>
-    </table>
+  </div>
+
+  <div class="midbuttons" style="position:absolute; top:80px;" >
+    <div>
+      <div class="statuslabel">SCHEDULE: </div><div class="status" id="STATUS_CURRENT_SCHEDULE_NAME">Test Schedule</div>
+    </div>
+    <div>
+      <div class="statuslabel">SEGMENT: </div><div class="status" id="STATUS_CURRENT_SEGMENT_NAME">Test Segment</div>
+    </div>
+    <div>
+      <div class="statuslabel">STATUS: </div><div class="status" id="STATUS_CURRENT_SEGMENT_STATUS">Idle</div>
+    </div>
+    <div>
+      <div class="statuslabel">REMAINING: </div><div class="status" id="STATUS_TIME_REMAINING">00:00:00</div>
+    </div>
+    <div>
+      <div class="statuslabel">SETPOINT: </div><div class="status" id="STATUS_SETPOINT">1000.0</div>
+    </div>
+    <div>
+      <div class="statuslabel">UPPER TEMP: </div><div class="status" id="STATUS_UPPER_TEMPERATURE">1500.0</div>
+    </div>
+    <div>
+      <div class="statuslabel">LOWER TEMP: </div><div class="status" id="STATUS_LOWER_TEMPERATURE">1400.0</div>
+    </div>
   </div>
 
   <div class="midbuttons" style="position:absolute; bottom:80px;">
@@ -212,67 +203,15 @@
       </div>
     </div>
     <div style="width:100%;">
-      <button href="/SCHEDULES.html" 
+      <a href="/SCHEDULES.html" 
       id='SCHEDULE_BUTTON'
-      class="BTN_GREY"
-      style="width:100%;height:60px;">SCHEDULES</button>
+      class="button BTN_GREY"
+      style="width:100%;height:60px;">SCHEDULES</a>
     </div>
   </div>
 
-  <!-- <div>
-    <table class="fullwidth" style="position:absolute; bottom:50px;" cellspacing="1" cellpadding="3">
-      <tr>
-        <td>
-          <button id='NEXT_BUTTON'
-          class="BTN_GREY"
-          style="width:100%;height:60px;">NEXT</button>
-        </td>
-        <td>
-          <button id='PREV_BUTTON'
-          class="BTN_GREY"
-          style="width:100%;height:60px;">PREV</button>
-        </td>
-      </tr>
-      <tr>
-        <td colspan="2">
-          <button id='HOLD_BUTTON'
-          class="BTN_ORANGE"
-          style="width:100%;height:60px;visibility:hidden;">RELEASE HOLD</button>
-        </td>
-      </tr>
-      <tr>
-        <td colspan="2">
-          <button id='MODE_BUTTON'
-          class="BTN_GREEN"
-          style="width:100%;height:60px;">AUTOMATIC</button>
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <button id='START_BUTTON'
-          class="BTN_GREEN"
-          style="width:100%;height:60px;">START</button>
-        </td>
-        <td>
-          <button id='STOP_BUTTON'
-          class="BTN_RED"
-          style="width:100%;height:60px;">STOP</button>
-        </td>
-      </tr>
-      <tr>
-        <td colspan="8">
-          <button href="/SCHEDULES.html" 
-          id='SCHEDULE_BUTTON'
-          class="BTN_GREY"
-          style="width:100%;height:60px;">SCHEDULES</button>
-        </td>
-      </tr>
-    </table>
-  </div> -->
-
 </body>
 
- 
 <script>
   var Socket;
   function init() 
@@ -280,7 +219,6 @@
     Socket = new WebSocket('ws://' + window.location.hostname + ':81/');
     Socket.onmessage = function(event) { processReceivedCommand(event); };
   }
- 
  
 function processReceivedCommand(evt) 
 {
@@ -385,13 +323,11 @@ function processReceivedCommand(evt)
     Socket.send(data);
   }
  
- 
   window.onload = function(e)
   { 
     init();
   }
 
 </script>
- 
  
 </html>
