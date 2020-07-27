@@ -1244,11 +1244,11 @@ void readSettingsFromEeeprom() {
 
 }
 
-#define THERMAL_RUNAWAY_TEMPERATURE_TIMER 10000 // 10000 is 10 seconds
-#define THERMAL_RUNAWAY_RATE_TIMER 120000 // 120000 i2 2 min
+#define THERMAL_RUNAWAY_TEMPERATURE_TIMER 120000 // 10000 is 10 seconds
+#define THERMAL_RUNAWAY_RATE_TIMER 600000 // 120000 i2 2 min
 bool TemperatureDifferenceDetected = false;
 bool RateDifferenceDetected = false;
-double Tolerance_Rate = 20.0, Tolerance_Temperature = 35.0;
+double Tolerance_Rate = 60.0, Tolerance_Temperature = 200.0;
 unsigned int ThermalRunawayTemperature_Timer = millis();
 unsigned int ThermalRunawayRate_Timer = millis();
 void handleThermalRunaway() {
@@ -1347,57 +1347,6 @@ void checkWifi() {
     //connectWifi(0);
   }
 }
-
-/*
-#define MAX_HTML_SIZE 12000
-char html_file[MAX_HTML_SIZE] = {'\0'};
-void readHtmlFile() {
-    File f = LittleFS.open("/MAIN.html","r");
-    if (!f) {
-      Serial.println("Error opening file.");
-    } else {
-      int i=0;
-      while (f.available()) {
-        html_file[i] = f.read();
-        i++;
-        //client.write( f.read() );
-        //Serial.write( f.read() );
-      }
-      f.close();
-    }
-}
-*/
-
-//void handleNewHttpClients() {
-  //WiFiClient client = server.available(); // Check if a client has connected
-  //if (client)  {
-    //client.setNoDelay(true);
-    //client.setSync(true);
-    //Serial.println("start flush");
-    //client.flush(); // timeout in milliseconds
-    //client.print(html_file);
-    //Serial.println("start write");
-    //client.write(html_file);
-    //client.print(html_file);
-   /* 
-    File f = LittleFS.open("/MAIN.html","r");
-    if (!f) {
-      Serial.println("Error opening file.");
-    } else {
-      while (f.available()) {
-        client.write( f.read() );
-        //Serial.write( f.read() );
-      }
-      f.close();
-    }
-    */
-    //client.print( header );
-    //client.print( html_1 ); 
-    //Serial.println("New page served");
-    //Serial.println("start stop");
-    //client.stop(); // timeout in milliseconds
-  //}
-//}
 
 void initLittleFS() {
  
@@ -1684,11 +1633,6 @@ void setup() {
   // start up the file system
   //
   initLittleFS();
-
-  //
-  // read in the html from flash
-  //
-  //readHtmlFile();
    
   //
   // setup pins
@@ -1755,7 +1699,6 @@ void loop() {
   handleThermalRunaway();
   handleModbus();
   handleMainContactor();
-  //handleNewHttpClients();
 
   //
   // handle heartbeat
