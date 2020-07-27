@@ -23,13 +23,8 @@ const char Initialized[] = {"Initialized01"};
     #define ARRAY_SIZE(x) (sizeof((x)) / sizeof((x)[0]))
 #endif
 
-
-
 #include <ArduinoJson.h>
 #include <StreamString.h>
- 
-
-
 
 #include <ESP8266WiFi.h>
 //#include <ESP8266mDNS.h>
@@ -147,8 +142,8 @@ uint16_t cbSchedule(TRegister* reg, uint16_t val) {
 //Define Variables we'll be connecting to
 double Setpoint_ch0, Setpoint_ch1, Input_01, Input_02, Output_01, Output_02;
 //Specify the links and initial tuning parameters
-double Kp_01=0.01, Ki_01=0.01, Kd_01=0.0;
-double Kp_02=0.01, Ki_02=0.01, Kd_02=0.0;
+double Kp_01=5.0, Ki_01=0.001, Kd_01=0.0;
+double Kp_02=5.0, Ki_02=0.001, Kd_02=0.0;
 PID PID_01(&Input_01, &Output_01, &Setpoint_ch0, Kp_01, Ki_01, Kd_01, DIRECT); // REVERSE - PROCESS lowers as OUTPUT rises
 PID PID_02(&Input_02, &Output_02, &Setpoint_ch1, Kp_02, Ki_02, Kd_02, DIRECT); 
 int WindowSize = 1000;
@@ -482,7 +477,7 @@ void handleModbus() {
   // could use callback here....
   if (ui_WriteEeprom) {
     ui_WriteEeprom = false;
-    writeScheduleToEeeprom();
+    writeSettingsToEeeprom();
     ui_EepromWritten = true;
     ui_SelectSchedule = true; // loaded schedule may have changed - go ahead and reload it
   }
@@ -498,7 +493,6 @@ int idx_ch0Readings = 0, idx_ch1Readings;
 double t_ch0Readings[TEMP_AVG_ARR_SIZE] = {0.0};
 double t_ch1Readings[TEMP_AVG_ARR_SIZE] = {0.0};
 double t_ch0Tot = 0.0, t_ch1Tot = 0.0;
-=======
 double t_ch0_fromLow = 1.0, t_ch0_fromHigh = 100.0, t_ch0_toLow = 1.0, t_ch0_toHigh = 100.0;
 double t_ch1_fromLow = 1.0, t_ch1_fromHigh = 100.0, t_ch1_toLow = 1.0, t_ch1_toHigh = 100.0;
 void handleTemperature() {
@@ -1003,7 +997,7 @@ void checkInit(){
     }
   }*/
   if (writeDefaults) {
-    applyDefaultScheduleSettings();
+    applyDefaultSettings();
     makeInitialized();
   }
 }
@@ -1023,8 +1017,8 @@ void makeInitialized(){
   LittleFS.format();
 }
 
-void applyDefaultScheduleSettings() {
-  Serial.println(F("Applying default schedule settings..."));
+void applyDefaultSettings() {
+  Serial.println(F("Applying default  settings..."));
   char strEmpty[MAX_STRING_LENGTH] = {'\0'};
   char strSchedule[] = {"Schedule"};
   char strSegment[] = {"Segment"};
@@ -1076,9 +1070,9 @@ void applyDefaultScheduleSettings() {
   
   // calibration settings
   /* upper */
-  t_ch0_fromLow = 1.0, t_ch0_fromHigh = 100.0, t_ch0_toLow = 1.0, t_ch0_toHigh = 100.0;
+  t_ch0_fromLow = 1.0, t_ch0_fromHigh = 2000.0, t_ch0_toLow = 1.0, t_ch0_toHigh = 2000.0;
   /* lower */
-  t_ch1_fromLow = 1.0, t_ch1_fromHigh = 100.0, t_ch1_toLow = 1.0, t_ch1_toHigh = 100.0;
+  t_ch1_fromLow = 1.0, t_ch1_fromHigh = 2000.0, t_ch1_toLow = 1.0, t_ch1_toHigh = 2000.0;
 
   writeSettingsToEeeprom();
 }
@@ -1327,7 +1321,6 @@ void handleMainContactor() {
     digitalWrite(MAIN_CONTACTOR_OUTPUT, HIGH);
   }
 }
-
 
 void connectWifi(int delaytime) { 
   WiFi.mode(WIFI_STA);
@@ -1685,7 +1678,7 @@ void setup() {
   // get/set settings
   //
   checkInit();
-  readScheduleFromEeeprom();
+  readSettingsFromEeeprom();
 
   //
   // start up the file system
