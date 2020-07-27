@@ -17,7 +17,7 @@
 // sketch will write default settings if new build
 //const char version[] = "build "  __DATE__ " " __TIME__; 
 const char version[] = __DATE__ " " __TIME__; 
-const char Initialized[] = {"Initialized10"};
+const char Initialized[] = {"Initialized01"};
 
 #if !defined(ARRAY_SIZE)
     #define ARRAY_SIZE(x) (sizeof((x)) / sizeof((x)[0]))
@@ -57,6 +57,10 @@ const char Initialized[] = {"Initialized10"};
 #define MB_CMD_WRITE_EEPROM       6
 #define MB_SCH_SEG_ENABLED        7
 #define MB_SCH_SEG_HOLD_EN        8
+#define MB_CMD_CAL_CH0_LOW        9
+#define MB_CMD_CAL_CH1_LOW        10
+#define MB_CMD_CAL_CH0_HIGH       11
+#define MB_CMD_CAL_CH1_HIGH       12
 /* input status (R) */
 #define MB_STS_SSR_01             1
 #define MB_STS_SSR_02             2
@@ -75,13 +79,15 @@ const char Initialized[] = {"Initialized10"};
 #define MB_PID_P_02               11
 #define MB_PID_I_02               13
 #define MB_PID_D_02               15
-#define MB_SCH_NAME               17 //100
-#define MB_SCH_SEG_NAME           25 //108
-#define MB_SCH_SEG_SETPOINT       33 //116
-#define MB_SCH_SEG_RAMP_RATE      35 //118
-#define MB_SCH_SEG_SOAK_TIME      36 //119
-#define MB_SCH_SEG_SELECTED       37 //120
-#define MB_SCH_SELECTED           38 //121
+#define MB_SCH_NAME               17
+#define MB_SCH_SEG_NAME           25
+#define MB_SCH_SEG_SETPOINT       33
+#define MB_SCH_SEG_RAMP_RATE      35
+#define MB_SCH_SEG_SOAK_TIME      36
+#define MB_SCH_SEG_SELECTED       37
+#define MB_SCH_SELECTED           38
+#define MB_CAL_TEMP_ACT_CH0       39 
+#define MB_CAL_TEMP_ACT_CH1       41
 /* input registers (R) 16 bit */
 #define MB_HEARTBEAT              1
 #define MB_STS_REMAINING_TIME_H   2
@@ -96,6 +102,8 @@ const char Initialized[] = {"Initialized10"};
 #define MB_STS_SEGMENT_STATE      15
 #define MB_STS_SEGMENT_NAME       16
 #define MB_STS_SCHEDULE_NAME      24 // this is 8 regs long - next should start at 32
+#define MB_STS_TEMP_01_RAW        32
+#define MB_STS_TEMP_02_RAW        34
 /* instance */
 ModbusRTU mb_rtu;
 ModbusIP mb_ip;
@@ -118,10 +126,17 @@ uint16_t cbWrite(TRegister* reg, uint16_t val) {
 
 /*
 uint16_t cbWriteEeprom(TRegister* reg, uint16_t val) {
-  writeScheduleToEeeprom();
+  writeSettingsToEeeprom();
   ui_EepromWritten = true;
   ui_WriteEeprom = false;
   return reg->value;
+}
+*/
+
+/*
+uint16_t cbSchedule(TRegister* reg, uint16_t val) {
+  ui_SelectSchedule = COIL_BOOL(val);
+  return val;
 }
 */
 
@@ -132,8 +147,8 @@ uint16_t cbWriteEeprom(TRegister* reg, uint16_t val) {
 //Define Variables we'll be connecting to
 double Setpoint_ch0, Setpoint_ch1, Input_01, Input_02, Output_01, Output_02;
 //Specify the links and initial tuning parameters
-double Kp_01=2.0, Ki_01=1.0, Kd_01=0.0;
-double Kp_02=2.0, Ki_02=1.0, Kd_02=0.0;
+double Kp_01=0.01, Ki_01=0.01, Kd_01=0.0;
+double Kp_02=0.01, Ki_02=0.01, Kd_02=0.0;
 PID PID_01(&Input_01, &Output_01, &Setpoint_ch0, Kp_01, Ki_01, Kd_01, DIRECT); // REVERSE - PROCESS lowers as OUTPUT rises
 PID PID_02(&Input_02, &Output_02, &Setpoint_ch1, Kp_02, Ki_02, Kd_02, DIRECT); 
 int WindowSize = 1000;
@@ -169,7 +184,7 @@ Adafruit_MAX31855 thermocouple_ch1(MAXCS_CH1);
 #define MAIN_CONTACTOR_OUTPUT     D4
 
 #define EEPROM_SCH_START_ADDR     100
-#define EEPROM_SIZE               2048 // // can be between 4 and 4096 -schedules take up around 1515 bytes when MAX_STRING_LENGTH=16, NUMBER_OF_SCHEDULES=5, and NUMBER_OF_SEGMENTS=10
+#define EEPROM_SIZE               3000 // // can be between 4 and 4096 -schedules take up around 1515 bytes when MAX_STRING_LENGTH=16, NUMBER_OF_SCHEDULES=5, and NUMBER_OF_SEGMENTS=10
 
 #define MAX_STRING_LENGTH         16 // space is wasted when this is an odd number because a modbus register is 2 bytes and fits 2 characters
 
@@ -223,6 +238,7 @@ bool Segment_WillIncrement_Ch1 = false;
 bool Segment_AtTemp_Ch0 = false;
 bool Segment_AtTemp_Ch1 = false;
 double temperature_ch0, temperature_ch1;
+double t_ch0_raw, t_ch1_raw;
 double temperatureLast_ch0 = 0.0, temperatureLast_ch1 = 0.0;
 double MeasuredRatePerHour_ch0, MeasuredRatePerHour_ch1;
 /* thermal runaway */
@@ -239,13 +255,6 @@ double ui_Setpoint = 0.0;
 bool ui_StsSSRPin_01, ui_StsSSRPin_02;
 uint16_t ui_ChangeSelectedSchedule = 0, ui_ChangeSelectedSegment = 0;
 bool ui_WriteEeprom = false;
-
-/*
-uint16_t cbSchedule(TRegister* reg, uint16_t val) {
-  ui_SelectSchedule = COIL_BOOL(val);
-  return val;
-}
-*/
 
 struct TIME {
   uint16_t hours;
@@ -489,8 +498,12 @@ int idx_ch0Readings = 0, idx_ch1Readings;
 double t_ch0Readings[TEMP_AVG_ARR_SIZE] = {0.0};
 double t_ch1Readings[TEMP_AVG_ARR_SIZE] = {0.0};
 double t_ch0Tot = 0.0, t_ch1Tot = 0.0;
+=======
+double t_ch0_fromLow = 1.0, t_ch0_fromHigh = 100.0, t_ch0_toLow = 1.0, t_ch0_toHigh = 100.0;
+double t_ch1_fromLow = 1.0, t_ch1_fromHigh = 100.0, t_ch1_toLow = 1.0, t_ch1_toHigh = 100.0;
 void handleTemperature() {
-  double t_ch0 = map(thermocouple_ch0.readFahrenheit(),78.0,3000.0,75.9,3000.0); //map(value,fromlow,fromhigh,tolow,tohigh);
+  t_ch0_raw = thermocouple_ch0.readFahrenheit();
+  double t_ch0 = map(t_ch0_raw,t_ch0_fromLow,t_ch0_fromHigh,t_ch0_toLow,t_ch0_toHigh); //map(value,fromlow,fromhigh,tolow,tohigh);
   if (isnan(t_ch0) || t_ch0 < -32.0 || t_ch0 > 5000.0) {
     //temperature_ch0 = 0.0;
   } else {
@@ -511,7 +524,8 @@ void handleTemperature() {
     // calculate the average:
     temperature_ch0 = t_ch0Tot / TEMP_AVG_ARR_SIZE;
   }
-  double t_ch1 = map(thermocouple_ch1.readFahrenheit(),89.0,3000.0,75.9,3000.0);
+  t_ch1_raw = thermocouple_ch1.readFahrenheit();
+  double t_ch1 = map(t_ch1_raw,t_ch1_fromLow,t_ch1_fromHigh,t_ch1_toLow,t_ch1_toHigh);
   if (isnan(t_ch1) || t_ch1 < -32.0 || t_ch1 > 5000.0) {
     //temperature_ch1 = 0.0;
   } else {
@@ -535,6 +549,32 @@ void handleTemperature() {
   if (Mode == SIMULATE_MODE) {
     temperature_ch0 = Setpoint_ch0;
     temperature_ch1 = Setpoint_ch1;
+  }
+}
+
+bool t_ch0_cal_low = false, t_ch1_cal_low = false;
+bool t_ch0_cal_high = false, t_ch1_cal_high = false;
+double t_ch0_actual = 100.0, t_ch1_actual = 100.0;
+void handleCal() {
+  if (t_ch0_cal_low) {
+    t_ch0_cal_low = false;
+    t_ch0_fromLow = t_ch0_raw;
+    t_ch0_toLow = t_ch0_actual;
+  }
+  if (t_ch1_cal_low) {
+    t_ch1_cal_low = false;
+    t_ch1_fromLow = t_ch1_raw;
+    t_ch1_toLow = t_ch1_actual;
+  }
+  if (t_ch0_cal_high) {
+    t_ch0_cal_high = false;
+    t_ch0_fromHigh = t_ch0_raw;
+    t_ch0_toHigh = t_ch0_actual;
+  }
+  if (t_ch1_cal_high) {
+    t_ch1_cal_high = false;
+    t_ch1_fromHigh = t_ch1_raw;
+    t_ch1_toHigh = t_ch1_actual;
   }
 }
 
@@ -1023,10 +1063,27 @@ void applyDefaultScheduleSettings() {
       Schedules[i].Segments[k].State = SEGMENT_STATE_IDLE;
     }
   }
-  writeScheduleToEeeprom();
+
+  // PID settings
+  /* upper */
+  Kp_01 = 0.01;
+  Ki_01 = 0.01;
+  Kd_01 = 0.0;
+  /* lower */
+  Kp_02 = 0.01;
+  Ki_02 = 0.01;
+  Kd_02 = 0.0;
+  
+  // calibration settings
+  /* upper */
+  t_ch0_fromLow = 1.0, t_ch0_fromHigh = 100.0, t_ch0_toLow = 1.0, t_ch0_toHigh = 100.0;
+  /* lower */
+  t_ch1_fromLow = 1.0, t_ch1_fromHigh = 100.0, t_ch1_toLow = 1.0, t_ch1_toHigh = 100.0;
+
+  writeSettingsToEeeprom();
 }
 
-void writeScheduleToEeeprom() {
+void writeSettingsToEeeprom() {
   //Serial.println(F("Writing Schedule to EEPROM..."));
   int address = EEPROM_SCH_START_ADDR;
 
@@ -1070,12 +1127,49 @@ void writeScheduleToEeeprom() {
       address = address + sizeof(Schedules[i].Segments[k].State);
     }
   }
+
+  // PID settings
+  /* upper */
+  EEPROM.put(address, Kp_01);
+  address = address + sizeof(Kp_01);
+  EEPROM.put(address, Ki_01);
+  address = address + sizeof(Ki_01);
+  EEPROM.put(address, Kd_01);
+  address = address + sizeof(Kd_01);
+  /* lower */
+  EEPROM.put(address, Kp_02);
+  address = address + sizeof(Kp_02);
+  EEPROM.put(address, Ki_02);
+  address = address + sizeof(Ki_02);
+  EEPROM.put(address, Kd_02);
+  address = address + sizeof(Kd_02);
+
+  // calibration settings
+  /* upper */
+  EEPROM.put(address, t_ch0_fromLow);
+  address = address + sizeof(t_ch0_fromLow);
+  EEPROM.put(address, t_ch0_fromHigh);
+  address = address + sizeof(t_ch0_fromHigh);
+  EEPROM.put(address, t_ch0_toLow);
+  address = address + sizeof(t_ch0_toLow);
+  EEPROM.put(address, t_ch0_toHigh);
+  address = address + sizeof(t_ch0_toHigh);
+  /* lower */
+  EEPROM.put(address, t_ch1_fromLow);
+  address = address + sizeof(t_ch1_fromLow);
+  EEPROM.put(address, t_ch1_fromHigh);
+  address = address + sizeof(t_ch1_fromHigh);
+  EEPROM.put(address, t_ch1_toLow);
+  address = address + sizeof(t_ch1_toLow);
+  EEPROM.put(address, t_ch1_toHigh);
+  address = address + sizeof(t_ch1_toHigh);
+
   /* commit to simulated eeprom (flash) */
   EEPROM.commit();
   //EEPROM.end(); // will also commit, but will release the RAM copy of EEPROM contents
 }
 
-void readScheduleFromEeeprom() {
+void readSettingsFromEeeprom() {
   //Serial.println(F("Reading Schedule from EEPROM..."));
   int address = EEPROM_SCH_START_ADDR;
 
@@ -1117,6 +1211,43 @@ void readScheduleFromEeeprom() {
       address = address + sizeof(Schedules[i].Segments[k].State);
     }
   }
+
+  // PID settings
+  /* upper */
+  EEPROM.get(address, Kp_01);
+  address = address + sizeof(Kp_01);
+  EEPROM.get(address, Ki_01);
+  address = address + sizeof(Ki_01);
+  EEPROM.get(address, Kd_01);
+  address = address + sizeof(Kd_01);
+  /* lower */
+  EEPROM.get(address, Kp_02);
+  address = address + sizeof(Kp_02);
+  EEPROM.get(address, Ki_02);
+  address = address + sizeof(Ki_02);
+  EEPROM.get(address, Kd_02);
+  address = address + sizeof(Kd_02);
+
+  // calibration settings
+  /* upper */
+  EEPROM.get(address, t_ch0_fromLow);
+  address = address + sizeof(t_ch0_fromLow);
+  EEPROM.get(address, t_ch0_fromHigh);
+  address = address + sizeof(t_ch0_fromHigh);
+  EEPROM.get(address, t_ch0_toLow);
+  address = address + sizeof(t_ch0_toLow);
+  EEPROM.get(address, t_ch0_toHigh);
+  address = address + sizeof(t_ch0_toHigh);
+  /* lower */
+  EEPROM.get(address, t_ch1_fromLow);
+  address = address + sizeof(t_ch1_fromLow);
+  EEPROM.get(address, t_ch1_fromHigh);
+  address = address + sizeof(t_ch1_fromHigh);
+  EEPROM.get(address, t_ch1_toLow);
+  address = address + sizeof(t_ch1_toLow);
+  EEPROM.get(address, t_ch1_toHigh);
+  address = address + sizeof(t_ch1_toHigh);
+
 }
 
 #define THERMAL_RUNAWAY_TEMPERATURE_TIMER 10000 // 10000 is 10 seconds
@@ -1196,6 +1327,7 @@ void handleMainContactor() {
     digitalWrite(MAIN_CONTACTOR_OUTPUT, HIGH);
   }
 }
+
 
 void connectWifi(int delaytime) { 
   WiFi.mode(WIFI_STA);
@@ -1441,6 +1573,10 @@ void setupModbus() {
   mb_rtu.addCoil(MB_CMD_WRITE_EEPROM);
   mb_rtu.addCoil(MB_SCH_SEG_ENABLED);
   mb_rtu.addCoil(MB_SCH_SEG_HOLD_EN);
+  mb_rtu.addCoil(MB_CMD_CAL_CH0_LOW);
+  mb_rtu.addCoil(MB_CMD_CAL_CH1_LOW);
+  mb_rtu.addCoil(MB_CMD_CAL_CH0_HIGH);
+  mb_rtu.addCoil(MB_CMD_CAL_CH1_HIGH);
   /* input status (R) */
   mb_rtu.addIsts(MB_STS_SSR_01);
   mb_rtu.addIsts(MB_STS_SSR_02);
@@ -1466,6 +1602,8 @@ void setupModbus() {
   mb_rtu.addHreg(MB_SCH_SEG_SOAK_TIME,0,1);
   mb_rtu.addHreg(MB_SCH_SEG_SELECTED,0,1);
   mb_rtu.addHreg(MB_SCH_SELECTED,1,1);
+  mb_rtu.addHreg(MB_CAL_TEMP_ACT_CH0,0,2);
+  mb_rtu.addHreg(MB_CAL_TEMP_ACT_CH1,0,2);
   /* input registers (R) */
   mb_rtu.addIreg(MB_HEARTBEAT,0,1);
   mb_rtu.addIreg(MB_STS_REMAINING_TIME_H,0,1);
@@ -1480,6 +1618,8 @@ void setupModbus() {
   mb_rtu.addIreg(MB_STS_SEGMENT_STATE,0,1);
   mb_rtu.addIreg(MB_STS_SEGMENT_NAME,0,8);
   mb_rtu.addIreg(MB_STS_SCHEDULE_NAME,0,8);
+  mb_rtu.addIreg(MB_STS_TEMP_01_RAW,0,2);
+  mb_rtu.addIreg(MB_STS_TEMP_02_RAW,0,2);
   
   //mb_rtu.onGetCoil(COIL_BASE, cbRead, LEN); // Add callback on Coils value get
   //mb_rtu.onSetCoil(MB_CMD_SELECT_SCHEDULE, cbSchedule);      // Add callback on Coil LED_COIL value set
@@ -1614,6 +1754,7 @@ void loop() {
   //
   checkWifi();
   handleSafetyCircuit();
+  handleCal();
   handleTemperature();
   handlePID();
   setSchedule();
