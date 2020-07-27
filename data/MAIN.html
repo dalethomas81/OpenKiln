@@ -143,6 +143,7 @@
   <div id='main'>
     <h2 style="text-align: center; color:#777777">MAIN</h2>
     <p class="debug_raw">Received data = <span style="word-wrap:break-word"; id='rd'>---</span> </p>
+    <p id="REFRESH_TIME">0</p>
   </div>
 
   <div class="midbuttons" style="position:absolute; top:80px;" >
@@ -221,114 +222,155 @@
     Socket = new WebSocket('ws://' + window.location.hostname + ':81/');
     Socket.onmessage = function(event) { processReceivedCommand(event); };
   }
- 
-function processReceivedCommand(evt) 
-{
-    document.getElementById('rd').innerHTML = evt.data;
+  
+  // setTimeout(function(){ //  set a timer to refresh the page in ms
+  //  window.location.reload(1);
+  // }, 300000);
 
-    var obj = JSON.parse(evt.data);
-    if (obj.topic == "status") {
-        document.getElementById('STATUS_CURRENT_SCHEDULE_NAME').innerHTML = obj.data.id1;
-        document.getElementById('STATUS_CURRENT_SEGMENT_NAME').innerHTML = obj.data.id2;
-        var status = "";
-        switch (obj.data.id3) {
-          case 0: // idle
-            status = "IDLE";
-            break;
-          case 1: // ramp
-            status = "RAMP";
-            break;
-          case 2: // soak
-            status = "SOAK";
-            break;
-          case 3: // hold
-            status = "HOLD";
-            break;
-          case 4: // init
-            status = "INIT";
-            break;
-          case 5: // start
-            status = "START";
-            break;
-        }
-        document.getElementById('STATUS_CURRENT_SEGMENT_STATUS').innerHTML = status;
-        document.getElementById('STATUS_TIME_REMAINING').innerHTML = obj.data.id4;
-        document.getElementById('STATUS_SETPOINT').innerHTML = obj.data.id5;
-        document.getElementById('STATUS_UPPER_TEMPERATURE').innerHTML = obj.data.id6;
-        document.getElementById('STATUS_LOWER_TEMPERATURE').innerHTML = obj.data.id7;
-        var modebtn = document.getElementById('MODE_BUTTON');
-        switch (obj.data.id8) {
-          case 1: 
-            modebtn.innerHTML = "AUTOMATIC";
-            modebtn.className = "BTN_GREEN"
-            break;
-          case 2: 
-            modebtn.innerHTML = "MANUAL";
-            modebtn.className = "BTN_BLUE"
-            break;
-          case 3: 
-            modebtn.innerHTML = "SIMULATION";
-            modebtn.className = "BTN_ORANGE"
-            break;
-        }
-        if (obj.data.id9) {
-          document.getElementById('HOLD_BUTTON').style.visibility='visible';
-        } else {
-          document.getElementById('HOLD_BUTTON').style.visibility='hidden';
-        }
-    }
-}
- 
-  document.getElementById('START_BUTTON').addEventListener('click', startButtonClicked);
-  function startButtonClicked()
-  {   
-    var btn = document.getElementById('START_BUTTON')
-    var btnText = btn.textContent || btn.innerText;
-    //document.getElementById('KILN_status').innerHTML = 'Kiln has been started';
-    sendText('{"topic":"CMD-START_PROFILE","val":"true"');
-    // if (btnText ==='Turn on the Kiln') { btn.innerHTML = 'Turn off the Kiln'; document.getElementById('KILN_status').innerHTML = 'Kiln is on';  sendText('1'); }  
-    // else                              { btn.innerHTML = 'Turn on the Kiln';  document.getElementById('KILN_status').innerHTML = 'Kiln is off'; sendText('0'); }
+  setInterval(function(){ document.getElementById('REFRESH_TIME').innerHTML = b.getTimeLeft(); }, 500);
+
+  b = new timer(function() {
+    window.location.reload(1);
+  }, 300000)
+
+  function timer(callback, delay) {
+      var id, started, remaining = delay, running
+
+      this.start = function() {
+          running = true
+          started = new Date()
+          id = setTimeout(callback, remaining)
+      }
+
+      this.pause = function() {
+          running = false
+          clearTimeout(id)
+          remaining -= new Date() - started
+      }
+
+      this.getTimeLeft = function() {
+          if (running) {
+              this.pause()
+              this.start()
+          }
+
+          return remaining
+      }
+
+      this.getStateRunning = function() {
+          return running
+      }
+
+      this.start()
   }
 
-  document.getElementById('STOP_BUTTON').addEventListener('click', stopButtonClicked);
-  function stopButtonClicked()
-  {   
-    sendText('{"topic":"CMD-STOP_PROFILE","val":"true"');
-  }
-
-  document.getElementById('MODE_BUTTON').addEventListener('click', modeButtonClicked);
-  function modeButtonClicked()
-  {   
-    sendText('{"topic":"CMD-CHANGE_MODE","val":"true"');
-  }
-
-  document.getElementById('HOLD_BUTTON').addEventListener('click', holdButtonClicked);
-  function holdButtonClicked()
-  {   
-    sendText('{"topic":"CMD-RELEASE_HOLD","val":"true"');
-  }
-
-  document.getElementById('NEXT_BUTTON').addEventListener('click', nextButtonClicked);
-  function nextButtonClicked()
-  {   
-    sendText('{"topic":"CMD-NEXT_SCHEDULE","val":"true"');
-  }
-
-  document.getElementById('PREV_BUTTON').addEventListener('click', prevButtonClicked);
-  function prevButtonClicked()
-  {   
-    sendText('{"topic":"CMD-PREV_SCHEDULE","val":"true"');
-  }
- 
-  function sendText(data)
+  function processReceivedCommand(evt) 
   {
-    Socket.send(data);
+      document.getElementById('rd').innerHTML = evt.data;
+
+      var obj = JSON.parse(evt.data);
+      if (obj.topic == "status") {
+          document.getElementById('STATUS_CURRENT_SCHEDULE_NAME').innerHTML = obj.data.id1;
+          document.getElementById('STATUS_CURRENT_SEGMENT_NAME').innerHTML = obj.data.id2;
+          var status = "";
+          switch (obj.data.id3) {
+            case 0: // idle
+              status = "IDLE";
+              break;
+            case 1: // ramp
+              status = "RAMP";
+              break;
+            case 2: // soak
+              status = "SOAK";
+              break;
+            case 3: // hold
+              status = "HOLD";
+              break;
+            case 4: // init
+              status = "INIT";
+              break;
+            case 5: // start
+              status = "START";
+              break;
+          }
+          document.getElementById('STATUS_CURRENT_SEGMENT_STATUS').innerHTML = status;
+          document.getElementById('STATUS_TIME_REMAINING').innerHTML = obj.data.id4;
+          document.getElementById('STATUS_SETPOINT').innerHTML = obj.data.id5;
+          document.getElementById('STATUS_UPPER_TEMPERATURE').innerHTML = obj.data.id6;
+          document.getElementById('STATUS_LOWER_TEMPERATURE').innerHTML = obj.data.id7;
+          var modebtn = document.getElementById('MODE_BUTTON');
+          switch (obj.data.id8) {
+            case 1: 
+              modebtn.innerHTML = "AUTOMATIC";
+              modebtn.className = "BTN_GREEN"
+              break;
+            case 2: 
+              modebtn.innerHTML = "MANUAL";
+              modebtn.className = "BTN_BLUE"
+              break;
+            case 3: 
+              modebtn.innerHTML = "SIMULATION";
+              modebtn.className = "BTN_ORANGE"
+              break;
+          }
+          if (obj.data.id9) {
+            document.getElementById('HOLD_BUTTON').style.visibility='visible';
+          } else {
+            document.getElementById('HOLD_BUTTON').style.visibility='hidden';
+          }
+      }
   }
- 
-  window.onload = function(e)
-  { 
-    init();
-  }
+  
+    document.getElementById('START_BUTTON').addEventListener('click', startButtonClicked);
+    function startButtonClicked()
+    {   
+      var btn = document.getElementById('START_BUTTON')
+      var btnText = btn.textContent || btn.innerText;
+      //document.getElementById('KILN_status').innerHTML = 'Kiln has been started';
+      sendText('{"topic":"CMD-START_PROFILE","val":"true"');
+      // if (btnText ==='Turn on the Kiln') { btn.innerHTML = 'Turn off the Kiln'; document.getElementById('KILN_status').innerHTML = 'Kiln is on';  sendText('1'); }  
+      // else                              { btn.innerHTML = 'Turn on the Kiln';  document.getElementById('KILN_status').innerHTML = 'Kiln is off'; sendText('0'); }
+    }
+
+    document.getElementById('STOP_BUTTON').addEventListener('click', stopButtonClicked);
+    function stopButtonClicked()
+    {   
+      sendText('{"topic":"CMD-STOP_PROFILE","val":"true"');
+    }
+
+    document.getElementById('MODE_BUTTON').addEventListener('click', modeButtonClicked);
+    function modeButtonClicked()
+    {   
+      sendText('{"topic":"CMD-CHANGE_MODE","val":"true"');
+    }
+
+    document.getElementById('HOLD_BUTTON').addEventListener('click', holdButtonClicked);
+    function holdButtonClicked()
+    {   
+      sendText('{"topic":"CMD-RELEASE_HOLD","val":"true"');
+    }
+
+    document.getElementById('NEXT_BUTTON').addEventListener('click', nextButtonClicked);
+    function nextButtonClicked()
+    {   
+      sendText('{"topic":"CMD-NEXT_SCHEDULE","val":"true"');
+    }
+
+    document.getElementById('PREV_BUTTON').addEventListener('click', prevButtonClicked);
+    function prevButtonClicked()
+    {   
+      sendText('{"topic":"CMD-PREV_SCHEDULE","val":"true"');
+    }
+  
+    function sendText(data)
+    {
+      Socket.send(data);
+    }
+  
+    window.onload = function(e)
+    { 
+      init();
+    }
 
 </script>
  
