@@ -167,7 +167,7 @@ Adafruit_MAX31855 thermocouple_ch1(MAXCS_CH1);
 #define WIFI_LISTENING_PORT       80
 #define SERIAL_BAUD_RATE          115200
 #define OTA_PASSWORD              "ProFiBus@12"
-#define OTA_HOSTNAME              "KilnControls"
+#define OTA_HOSTNAME              "Kiln_"
 #define HEARTBEAT_TIME            1000
 
 #define AUTOMATIC_MODE            1
@@ -1477,7 +1477,9 @@ void setupOTA(){
   // Port defaults to 8266
   // ArduinoOTA.setPort(8266);
   // Hostname defaults to esp8266-[ChipID]
-  ArduinoOTA.setHostname(OTA_HOSTNAME);
+  String hostname(OTA_HOSTNAME);
+  hostname += String(ESP.getChipId(), HEX);
+  ArduinoOTA.setHostname(hostname.c_str());
   // No authentication by default
   //ArduinoOTA.setPassword((const char *)OTA_PASSWORD);
   ArduinoOTA.onStart([]() {
