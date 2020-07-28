@@ -280,50 +280,54 @@ double temperatureLast_ch0 = 0.0, temperatureLast_ch1 = 0.0;
 double t_ch0Tot = 0.0, t_ch1Tot = 0.0;
 double t_ch0_fromLow = 1.0, t_ch0_fromHigh = 3000.0, t_ch0_toLow = 1.0, t_ch0_toHigh = 3000.0;
 double t_ch1_fromLow = 1.0, t_ch1_fromHigh = 3000.0, t_ch1_toLow = 1.0, t_ch1_toHigh = 3000.0;
+#define TEMPERATURE_SAMPLE_RATE 100
+unsigned long SampleTemperature_Timer = millis();
 void handleTemperature() {
   t_ch0_raw = thermocouple_ch0.readFahrenheit();
-  double t_ch0 = map(t_ch0_raw,t_ch0_fromLow,t_ch0_fromHigh,t_ch0_toLow,t_ch0_toHigh); //map(value,fromlow,fromhigh,tolow,tohigh);
-  if (isnan(t_ch0) || t_ch0 < -32.0 || t_ch0 > 5000.0) {
-    //temperature_ch0 = 0.0;
-  } else {
-    /* smoothing */
-    // subtract the last reading:
-    t_ch0Tot = t_ch0Tot - t_ch0Readings[idx_ch0Readings];
-    // read from the sensor:
-    t_ch0Readings[idx_ch0Readings] = t_ch0;
-    // add the reading to the total:
-    t_ch0Tot = t_ch0Tot + t_ch0Readings[idx_ch0Readings];
-    // advance to the next position in the array:
-    idx_ch0Readings++;
-    // if we're at the end of the array...
-    if (idx_ch0Readings >= TEMP_AVG_ARR_SIZE) {
-      // ...wrap around to the beginning:
-      idx_ch0Readings = 0;
-    }
-    // calculate the average:
-    temperature_ch0 = t_ch0Tot / TEMP_AVG_ARR_SIZE;
-  }
   t_ch1_raw = thermocouple_ch1.readFahrenheit();
-  double t_ch1 = map(t_ch1_raw,t_ch1_fromLow,t_ch1_fromHigh,t_ch1_toLow,t_ch1_toHigh);
-  if (isnan(t_ch1) || t_ch1 < -32.0 || t_ch1 > 5000.0) {
-    //temperature_ch1 = 0.0;
-  } else {
-    /* smoothing */
-    // subtract the last reading:
-    t_ch1Tot = t_ch1Tot - t_ch1Readings[idx_ch1Readings];
-    // read from the sensor:
-    t_ch1Readings[idx_ch1Readings] = t_ch1;
-    // add the reading to the total:
-    t_ch1Tot = t_ch1Tot + t_ch1Readings[idx_ch1Readings];
-    // advance to the next position in the array:
-    idx_ch1Readings++;
-    // if we're at the end of the array...
-    if (idx_ch1Readings >= TEMP_AVG_ARR_SIZE) {
-      // ...wrap around to the beginning:
-      idx_ch1Readings = 0;
+  if (millis()-SampleTemperature_Timer > TEMPERATURE_SAMPLE_RATE) {
+    double t_ch0 = map(t_ch0_raw,t_ch0_fromLow,t_ch0_fromHigh,t_ch0_toLow,t_ch0_toHigh); //map(value,fromlow,fromhigh,tolow,tohigh);
+    if (isnan(t_ch0) || t_ch0 < -32.0 || t_ch0 > 5000.0) {
+      //temperature_ch0 = 0.0;
+    } else {
+      /* smoothing */
+      // subtract the last reading:
+      t_ch0Tot = t_ch0Tot - t_ch0Readings[idx_ch0Readings];
+      // read from the sensor:
+      t_ch0Readings[idx_ch0Readings] = t_ch0;
+      // add the reading to the total:
+      t_ch0Tot = t_ch0Tot + t_ch0Readings[idx_ch0Readings];
+      // advance to the next position in the array:
+      idx_ch0Readings++;
+      // if we're at the end of the array...
+      if (idx_ch0Readings >= TEMP_AVG_ARR_SIZE) {
+        // ...wrap around to the beginning:
+        idx_ch0Readings = 0;
+      }
+      // calculate the average:
+      temperature_ch0 = t_ch0Tot / TEMP_AVG_ARR_SIZE;
     }
-    // calculate the average:
-    temperature_ch1 = t_ch1Tot / TEMP_AVG_ARR_SIZE;
+    double t_ch1 = map(t_ch1_raw,t_ch1_fromLow,t_ch1_fromHigh,t_ch1_toLow,t_ch1_toHigh);
+    if (isnan(t_ch1) || t_ch1 < -32.0 || t_ch1 > 5000.0) {
+      //temperature_ch1 = 0.0;
+    } else {
+      /* smoothing */
+      // subtract the last reading:
+      t_ch1Tot = t_ch1Tot - t_ch1Readings[idx_ch1Readings];
+      // read from the sensor:
+      t_ch1Readings[idx_ch1Readings] = t_ch1;
+      // add the reading to the total:
+      t_ch1Tot = t_ch1Tot + t_ch1Readings[idx_ch1Readings];
+      // advance to the next position in the array:
+      idx_ch1Readings++;
+      // if we're at the end of the array...
+      if (idx_ch1Readings >= TEMP_AVG_ARR_SIZE) {
+        // ...wrap around to the beginning:
+        idx_ch1Readings = 0;
+      }
+      // calculate the average:
+      temperature_ch1 = t_ch1Tot / TEMP_AVG_ARR_SIZE;
+    }
   }
   if (Mode == SIMULATION_MODE) {
     temperature_ch0 = Setpoint_ch0;
@@ -1446,7 +1450,7 @@ void checkInit(){
     }
   }*/
   if (writeDefaults) {
-    applyDefaultSettings();
+    //applyDefaultSettings();
     makeInitialized();
   }
 }
