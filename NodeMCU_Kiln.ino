@@ -14,33 +14,6 @@
 
 // NOTE: ****** kiln was flashed with ESP Board version 2.7.2
 
-
-#if !defined(ARRAY_SIZE)
-    #define ARRAY_SIZE(x) (sizeof((x)) / sizeof((x)[0]))
-#endif
-
-#include <ArduinoJson.h>
-#include <StreamString.h>
-
-#include <ESP8266WiFi.h>
-//#include <ESP8266mDNS.h>
-//#include <WiFiUdp.h>
-#include <ArduinoOTA.h>
-
-int HEARTBEAT_VALUE = 0;
-bool ui_EepromWritten = false;
-
-
-//
-// temperature sensors
-//
-#include <SPI.h>
-#include "Adafruit_MAX31855.h"
-#define MAXCS_CH0   D8 // D8 is GPIO15 SPI (CS) on NodeMCU
-Adafruit_MAX31855 thermocouple_ch0(MAXCS_CH0);
-#define MAXCS_CH1   D7 // D3 is GPIO0 connected to FLASH button on NodeMCU
-Adafruit_MAX31855 thermocouple_ch1(MAXCS_CH1);
-
 //
 // defines
 //
@@ -52,50 +25,40 @@ Adafruit_MAX31855 thermocouple_ch1(MAXCS_CH1);
 #define SIMULATION_MODE           3
 #define NUMER_OF_MODES            3 // make this equal to the last mode to trap errors
 
-#define SAFETY_CIRCUIT_INPUT      D0
-#define MAIN_CONTACTOR_OUTPUT     D4
-
-
-#define MAX_STRING_LENGTH         16 // space is wasted when this is an odd number because a modbus register is 2 bytes and fits 2 characters
-
 //
 // init variables
 //
-const int ESP_BUILTIN_LED = LED_BUILTIN;
-//const int ANALOG_PIN = A0; // causing issues - see below
-const int SSR_PIN_01 = D1; // D1 D2 D5 D6 D7 (these are recommended pins)
-const int SSR_PIN_02 = D2;
-unsigned long timer_heartbeat;
 bool Safety_Ok = false;
-int SafetyInputLast = 0;
+uint16_t Mode = AUTOMATIC_MODE,  Mode_Last = AUTOMATIC_MODE;
+bool ThermalRunawayDetected = false, ui_ThermalRunawayOverride = false;
+
+
+
+
+
+
+
+
 
 #define WIFI_LISTENING_PORT       80
 #include <WebSocketsServer.h>  // Websockets by Markus Sattler https://github.com/Links2004/arduinoWebSockets
-//WiFiServer server(WIFI_LISTENING_PORT);
 WebSocketsServer webSocket = WebSocketsServer(WIFI_LISTENING_PORT+1);
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 AsyncWebServer server(WIFI_LISTENING_PORT);
 
 
-/* thermal runaway */
-bool ThermalRunawayDetected = false, ui_ThermalRunawayOverride = false;
-/* user interface */
-uint16_t Mode = AUTOMATIC_MODE,  Mode_Last = AUTOMATIC_MODE;
-bool ui_StartProfile = false;
-bool ui_StopProfile = false;
-bool ui_Segment_HoldReleaseRequest = false;
-bool ui_Segment_HoldRelease = false;
-bool ui_SelectSchedule = false;
-uint16_t ui_SelectedSchedule = 0, ui_SelectedScheduleLast = 1;
-double ui_Setpoint = 0.0;
-bool ui_StsSSRPin_01, ui_StsSSRPin_02;
-uint16_t ui_ChangeSelectedSchedule = 0, ui_ChangeSelectedSegment = 0;
-bool ui_WriteEeprom = false;
+
+
+
+
+
+
 
 //
-// init wifi
+// wifi
 //
+#include <ESP8266WiFi.h>
 #define WIFI_SSID                 "Thomas_301"
 #define WIFI_PASSWORD             "RS232@12"
 void connectWifi(int delaytime) { 
@@ -123,6 +86,9 @@ void checkWifi() {
   }
 }
 
+//
+// flash 
+//
 #include "LittleFS.h" // need the upload tool here https://github.com/earlephilhower/arduino-esp8266littlefs-plugin
 void initLittleFS() {
  
@@ -185,8 +151,50 @@ void initLittleFS() {
     */
 }
 
+//
+// ota 
+//
+#include <ArduinoOTA.h>
+#define OTA_PASSWORD "ProFiBus@12"
+#define OTA_HOSTNAME "Kiln-"
+void setupOTA(){
+  // Port defaults to 8266
+  // ArduinoOTA.setPort(8266);
+  // Hostname defaults to esp8266-[ChipID]
+  String hostname(OTA_HOSTNAME);
+  hostname += String(ESP.getChipId(), HEX);
+  ArduinoOTA.setHostname(hostname.c_str());
+  // No authentication by default
+  //ArduinoOTA.setPassword((const char *)OTA_PASSWORD);
+  ArduinoOTA.onStart([]() {
+    LittleFS.end();
+    Serial.println("Start");
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\nEnd");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+  });
+  ArduinoOTA.begin();
+}
+
+//
+// i/o
+//
+#define SAFETY_CIRCUIT_INPUT      D0
+#define MAIN_CONTACTOR_OUTPUT     D4
+#define SSR_PIN_01                D1
+#define SSR_PIN_02                D2
 void setupPins() {
-  //pinMode(ESP_BUILTIN_LED, OUTPUT);
   pinMode(SSR_PIN_01, OUTPUT);
   pinMode(SSR_PIN_02, OUTPUT);
   pinMode(SAFETY_CIRCUIT_INPUT, INPUT);
@@ -198,10 +206,9 @@ void setupPins() {
 // pid
 //
 #include <PID_v1.h>
-//Define Variables we'll be connecting to
 double Setpoint_ch0, Setpoint_ch1, Input_01, Input_02, Output_01, Output_02;
 double temperature_ch0, temperature_ch1;
-//Specify the links and initial tuning parameters
+bool ui_StsSSRPin_01, ui_StsSSRPin_02;
 double Kp_01=5.0, Ki_01=0.001, Kd_01=0.0;
 double Kp_02=5.0, Ki_02=0.001, Kd_02=0.0;
 PID PID_01(&Input_01, &Output_01, &Setpoint_ch0, Kp_01, Ki_01, Kd_01, DIRECT); // REVERSE - PROCESS lowers as OUTPUT rises
@@ -271,6 +278,12 @@ void setupPID() {
 //
 // temperature
 //
+#include <SPI.h>
+#include "Adafruit_MAX31855.h"
+#define MAXCS_CH0   D8 // D8 is GPIO15 SPI (CS) on NodeMCU
+#define MAXCS_CH1   D7 // D3 is GPIO0 connected to FLASH button on NodeMCU
+Adafruit_MAX31855 thermocouple_ch0(MAXCS_CH0);
+Adafruit_MAX31855 thermocouple_ch1(MAXCS_CH1);
 #define TEMP_AVG_ARR_SIZE 100
 int idx_ch0Readings = 0, idx_ch1Readings;
 double t_ch0Readings[TEMP_AVG_ARR_SIZE] = {0.0};
@@ -374,41 +387,6 @@ void handleCal() {
 }
 
 //
-// ota 
-//
-#define OTA_PASSWORD "ProFiBus@12"
-#define OTA_HOSTNAME "Kiln-"
-void setupOTA(){
-  // Port defaults to 8266
-  // ArduinoOTA.setPort(8266);
-  // Hostname defaults to esp8266-[ChipID]
-  String hostname(OTA_HOSTNAME);
-  hostname += String(ESP.getChipId(), HEX);
-  ArduinoOTA.setHostname(hostname.c_str());
-  // No authentication by default
-  //ArduinoOTA.setPassword((const char *)OTA_PASSWORD);
-  ArduinoOTA.onStart([]() {
-    LittleFS.end();
-    Serial.println("Start");
-  });
-  ArduinoOTA.onEnd([]() {
-    Serial.println("\nEnd");
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-  });
-  ArduinoOTA.begin();
-}
-
-//
 // profile sequence
 //
 #define SEGMENT_STATE_IDLE    0
@@ -421,6 +399,7 @@ void setupOTA(){
 #define NUMBER_OF_SEGMENTS    10
 #define RATE_TIMER_PERIOD     1000
 #define RAMP_TIMER_PERIOD     1000
+#define MAX_STRING_LENGTH     16 // space is wasted when this is an odd number because a modbus register is 2 bytes and fits 2 characters
 uint16_t SOAK_TIMER_PERIOD = 0;
 unsigned long RampTimer, SoakTimer, RateTimer;
 bool RampTimerEnabled = false;
@@ -433,6 +412,14 @@ bool Segment_WillIncrement_Ch1 = false;
 bool Segment_AtTemp_Ch0 = false;
 bool Segment_AtTemp_Ch1 = false;
 double MeasuredRatePerHour_ch0, MeasuredRatePerHour_ch1;
+bool ui_StartProfile = false;
+bool ui_StopProfile = false;
+bool ui_Segment_HoldReleaseRequest = false;
+bool ui_Segment_HoldRelease = false;
+bool ui_SelectSchedule = false;
+uint16_t ui_SelectedSchedule = 0, ui_SelectedScheduleLast = 1;
+uint16_t ui_ChangeSelectedSchedule = 0, ui_ChangeSelectedSegment = 0;
+double ui_Setpoint = 0.0;
 struct TIME {
   uint16_t hours;
   uint16_t minutes;
@@ -817,6 +804,7 @@ bool RateDifferenceDetected = false;
 double Tolerance_Rate = 60.0, Tolerance_Temperature = 200.0;
 unsigned int ThermalRunawayTemperature_Timer = millis();
 unsigned int ThermalRunawayRate_Timer = millis();
+int SafetyInputLast = 0;
 void handleThermalRunaway() {
 
   switch (ProfileSequence) {
@@ -957,7 +945,10 @@ void handleMainContactor() {
 /* instance */
 ModbusRTU mb_rtu;
 ModbusIP mb_ip;
+int HEARTBEAT_VALUE = 0;
+bool ui_EepromWritten = false;
 unsigned long EepromWritten_Timer = millis();
+bool ui_WriteEeprom = false;
 union floatAsBytes {
   float fval;
   uint16_t ui[2];
@@ -1549,6 +1540,8 @@ void applyDefaultSettings() {
 //
 // websockets 
 //
+#include <ArduinoJson.h>
+#include <StreamString.h>
 void setupWebsocket() {
     // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){ // https://github.com/me-no-dev/ESPAsyncWebServer
@@ -1654,6 +1647,7 @@ void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length)
 //
 // setup
 //
+unsigned long timer_heartbeat;
 void setup() {
   //
   // start serial com 
