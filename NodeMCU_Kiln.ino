@@ -27,107 +27,9 @@
 //#include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 
-//
-// modbus
-//
-//#define COIL_VAL(v)   // get coil value
-//#define COIL_BOOL(v)  // assign coil value
-//#define ISTS_VAL(v)   // get status value
-//#define ISTS_BOOL(v)  // assign status value
-#include <ModbusRTU.h> // https://github.com/emelianov/modbus-esp8266
-#include <ModbusIP_ESP8266.h>
-#define SLAVE_ID                  1
-/* coils (RW) */
-#define MB_CMD_SELECT_SCHEDULE    1
-#define MB_CMD_START_PROFILE      2
-#define MB_CMD_STOP_PROFILE       3
-#define MB_CMD_HOLD_RELEASE       4
-#define MB_CMD_THERM_OVERRIDE     5
-#define MB_CMD_WRITE_EEPROM       6
-#define MB_SCH_SEG_ENABLED        7
-#define MB_SCH_SEG_HOLD_EN        8
-#define MB_CMD_CAL_CH0_LOW        9
-#define MB_CMD_CAL_CH1_LOW        10
-#define MB_CMD_CAL_CH0_HIGH       11
-#define MB_CMD_CAL_CH1_HIGH       12
-/* input status (R) */
-#define MB_STS_SSR_01             1
-#define MB_STS_SSR_02             2
-#define MB_STS_RELEASE_REQ        3
-#define MB_STS_SAFETY_OK          4
-#define MB_STS_IN_PROCESS         5
-#define MB_STS_THERMAL_RUNAWAY    6
-#define MB_STS_EEPROM_WRITTEN     7 //50
-/* holding registers (RW) 16 bit */
-#define MB_MODE                   1
-#define MB_CMD_SELECTED_SCHEDULE  2
-#define MB_CMD_SETPOINT           3
-#define MB_PID_P_01               5
-#define MB_PID_I_01               7
-#define MB_PID_D_01               9
-#define MB_PID_P_02               11
-#define MB_PID_I_02               13
-#define MB_PID_D_02               15
-#define MB_SCH_NAME               17
-#define MB_SCH_SEG_NAME           25
-#define MB_SCH_SEG_SETPOINT       33
-#define MB_SCH_SEG_RAMP_RATE      35
-#define MB_SCH_SEG_SOAK_TIME      36
-#define MB_SCH_SEG_SELECTED       37
-#define MB_SCH_SELECTED           38
-#define MB_CAL_TEMP_ACT_CH0       39 
-#define MB_CAL_TEMP_ACT_CH1       41
-/* input registers (R) 16 bit */
-#define MB_HEARTBEAT              1
-#define MB_STS_REMAINING_TIME_H   2
-#define MB_STS_REMAINING_TIME_M   3
-#define MB_STS_REMAINING_TIME_S   4
-#define MB_STS_TEMPERATURE_01     5
-#define MB_STS_TEMPERATURE_02     7
-#define MB_STS_PID_01_OUTPUT      9
-#define MB_STS_PID_02_OUTPUT      11
-#define MB_NUMBER_OF_SCHEDULES    13
-#define MB_NUMBER_OF_SEGMENTS     14
-#define MB_STS_SEGMENT_STATE      15
-#define MB_STS_SEGMENT_NAME       16
-#define MB_STS_SCHEDULE_NAME      24 // this is 8 regs long - next should start at 32
-#define MB_STS_TEMP_01_RAW        32
-#define MB_STS_TEMP_02_RAW        34
-/* instance */
-ModbusRTU mb_rtu;
-ModbusIP mb_ip;
 int HEARTBEAT_VALUE = 0;
 bool ui_EepromWritten = false;
-/*
-// Callback function to read corresponding DI
-uint16_t cbRead(TRegister* reg, uint16_t val) {
-  if(reg->address.address < COIL_BASE)
-    return 0;
-  uint8_t offset = reg->address.address - COIL_BASE;
-  if(offset >= LEN)
-    return 0; 
-  return COIL_VAL(digitalRead(pinList[offset]));
-}
-// Callback function to write-protect DI
-uint16_t cbWrite(TRegister* reg, uint16_t val) {
-  return reg->value;
-}*/
 
-/*
-uint16_t cbWriteEeprom(TRegister* reg, uint16_t val) {
-  writeSettingsToEeeprom();
-  ui_EepromWritten = true;
-  ui_WriteEeprom = false;
-  return reg->value;
-}
-*/
-
-/*
-uint16_t cbSchedule(TRegister* reg, uint16_t val) {
-  ui_SelectSchedule = COIL_BOOL(val);
-  return val;
-}
-*/
 
 //
 // temperature sensors
@@ -175,34 +77,7 @@ WebSocketsServer webSocket = WebSocketsServer(WIFI_LISTENING_PORT+1);
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 AsyncWebServer server(WIFI_LISTENING_PORT);
 
-//
-// profile sequence
-//
-#define SEGMENT_STATE_IDLE    0
-#define SEGMENT_STATE_RAMP    1
-#define SEGMENT_STATE_SOAK    2
-#define SEGMENT_STATE_HOLD    3
-#define SEGMENT_STATE_INIT    4
-#define SEGMENT_STATE_START   5
-#define NUMBER_OF_SCHEDULES   5
-#define NUMBER_OF_SEGMENTS    10
-#define RATE_TIMER_PERIOD     1000
-#define RAMP_TIMER_PERIOD     1000
-uint16_t SOAK_TIMER_PERIOD = 0;
-unsigned long RampTimer, SoakTimer, RateTimer;
-bool RampTimerEnabled = false;
-bool SoakTimerEnabled = false;
-uint16_t ProfileSequence = SEGMENT_STATE_IDLE;
-uint16_t SegmentIndex = 0;
-bool Segment_CheckDirection = false;
-bool Segment_WillIncrement_Ch0 = false;
-bool Segment_WillIncrement_Ch1 = false;
-bool Segment_AtTemp_Ch0 = false;
-bool Segment_AtTemp_Ch1 = false;
-double temperature_ch0, temperature_ch1;
-double t_ch0_raw, t_ch1_raw;
-double temperatureLast_ch0 = 0.0, temperatureLast_ch1 = 0.0;
-double MeasuredRatePerHour_ch0, MeasuredRatePerHour_ch1;
+
 /* thermal runaway */
 bool ThermalRunawayDetected = false, ui_ThermalRunawayOverride = false;
 /* user interface */
@@ -217,140 +92,6 @@ double ui_Setpoint = 0.0;
 bool ui_StsSSRPin_01, ui_StsSSRPin_02;
 uint16_t ui_ChangeSelectedSchedule = 0, ui_ChangeSelectedSegment = 0;
 bool ui_WriteEeprom = false;
-
-struct TIME {
-  uint16_t hours;
-  uint16_t minutes;
-  uint16_t seconds;
-  uint16_t milliseconds;
-} Segment_TimeRemaining;
-      
-struct SCHEDULE_SEGMENT { // 1 segment is 30 bytes when MAX_STRING_LENGTH = 15
-  char Name[MAX_STRING_LENGTH] = {'\0'}; // char is 1 byte 15
-  bool Enabled; // bool is 1 byte
-  bool HoldEnabled; // bool is 1 byte
-  double Setpoint;    // in degrees(C) // double is 8 bytes
-  uint16_t RampRate;  // in degrees(C)/hour // uint16_t is 2 bytes
-  uint16_t SoakTime;  // in minutes // uint16_t is 2 bytes
-  uint8_t State; // uint8_t is 1 bytes
-};
-
-struct SCHEDULE { // each schedule is 303 bytes when NUMBER_OF_SEGMENTS = 10 and MAX_STRING_LENGTH = 15
-  char Name[MAX_STRING_LENGTH] = {'\0'}; // char is 1 byte
-  bool CMD_Select; // bool is 1 byte
-  bool STS_Select; // bool is 1 byte
-  SCHEDULE_SEGMENT Segments[NUMBER_OF_SEGMENTS]; // 1 segment is 30 - when NUMBER_OF_SEGMENTS = 10 this is 300
-} Schedules[NUMBER_OF_SCHEDULES],LoadedSchedule;
-
-union floatAsBytes {
-  float fval;
-  uint16_t ui[2];
-  byte bval[4];
-};
-
-union charAsUnit16 {
-  uint16_t reg;
-  char c[2];
-};
-
-void DoubleToIreg(uint16_t reg, double val) {
-  floatAsBytes flt; 
-  flt.fval = val;
-  mb_rtu.Ireg(reg, flt.ui[0]);
-  mb_rtu.Ireg(reg+1, flt.ui[1]);
-}
-
-void DoubleToHreg(uint16_t reg, double val) {
-  floatAsBytes flt; 
-  flt.fval = val;
-  mb_rtu.Hreg(reg, flt.ui[0]);
-  mb_rtu.Hreg(reg+1, flt.ui[1]);
-}
-
-double HregToDouble(uint16_t reg) {
-  floatAsBytes flt; 
-  flt.ui[0] = mb_rtu.Hreg(reg);
-  flt.ui[1] = mb_rtu.Hreg(reg+1);
-  return flt.fval;
-}
-
-#define THERMAL_RUNAWAY_TEMPERATURE_TIMER 120000 // 10000 is 10 seconds
-#define THERMAL_RUNAWAY_RATE_TIMER 600000 // 120000 i2 2 min
-bool TemperatureDifferenceDetected = false;
-bool RateDifferenceDetected = false;
-double Tolerance_Rate = 60.0, Tolerance_Temperature = 200.0;
-unsigned int ThermalRunawayTemperature_Timer = millis();
-unsigned int ThermalRunawayRate_Timer = millis();
-void handleThermalRunaway() {
-
-  switch (ProfileSequence) {
-    case SEGMENT_STATE_IDLE:
-      break;
-    case SEGMENT_STATE_INIT:
-      break;
-    case SEGMENT_STATE_START:
-      break;
-    case SEGMENT_STATE_RAMP:
-      /* ch0 */
-      if ((MeasuredRatePerHour_ch0 > LoadedSchedule.Segments[SegmentIndex].RampRate + Tolerance_Rate) || 
-          (MeasuredRatePerHour_ch0 < LoadedSchedule.Segments[SegmentIndex].RampRate - Tolerance_Rate)) {
-            RateDifferenceDetected = true;
-          }
-      /* ch1 */
-      if ((MeasuredRatePerHour_ch1 > LoadedSchedule.Segments[SegmentIndex].RampRate + Tolerance_Rate) || 
-          (MeasuredRatePerHour_ch1 < LoadedSchedule.Segments[SegmentIndex].RampRate - Tolerance_Rate)) {
-            RateDifferenceDetected = true;
-          }
-      break;
-    case SEGMENT_STATE_SOAK:
-      /* ch0 */
-      if ((temperature_ch0 > LoadedSchedule.Segments[SegmentIndex].Setpoint + Tolerance_Temperature) || 
-          (temperature_ch0 < LoadedSchedule.Segments[SegmentIndex].Setpoint - Tolerance_Temperature)) {
-            TemperatureDifferenceDetected = true;
-          }
-      /* ch1 */
-      if ((temperature_ch1 > LoadedSchedule.Segments[SegmentIndex].Setpoint + Tolerance_Temperature) || 
-          (temperature_ch1 < LoadedSchedule.Segments[SegmentIndex].Setpoint - Tolerance_Temperature)) {
-            TemperatureDifferenceDetected = true;
-          }
-      break;
-  }
-  // check temperature difference
-  unsigned int ThermalRunawayTemperatureTimer_Elapsed = millis() - ThermalRunawayTemperature_Timer;
-  if (ThermalRunawayTemperatureTimer_Elapsed > THERMAL_RUNAWAY_TEMPERATURE_TIMER || !TemperatureDifferenceDetected) {
-    if (TemperatureDifferenceDetected) {
-      ThermalRunawayDetected = true;
-    } else {
-      ThermalRunawayTemperature_Timer = millis();
-    }
-  }
-  TemperatureDifferenceDetected = false;
-  // check rate difference
-  unsigned int ThermalRunawayRateTimer_Elapsed = millis() - ThermalRunawayRate_Timer;
-  if (ThermalRunawayRateTimer_Elapsed > THERMAL_RUNAWAY_RATE_TIMER || !RateDifferenceDetected) {
-    if (RateDifferenceDetected) {
-      ThermalRunawayDetected = true;
-    } else {
-      ThermalRunawayRate_Timer = millis();
-    }
-  }
-  RateDifferenceDetected = false;
-  // need to physically press the stop button to reset
-  if (!Safety_Ok || ui_ThermalRunawayOverride) {
-    ThermalRunawayTemperature_Timer = millis();
-    ThermalRunawayRate_Timer = millis();
-    ThermalRunawayDetected = false;
-  }
-
-}
-
-void handleMainContactor() {
-  if (Safety_Ok && !ThermalRunawayDetected && Mode != SIMULATION_MODE) {
-    digitalWrite(MAIN_CONTACTOR_OUTPUT, LOW);
-  } else {
-    digitalWrite(MAIN_CONTACTOR_OUTPUT, HIGH);
-  }
-}
 
 //
 // init wifi
@@ -459,6 +200,7 @@ void setupPins() {
 #include <PID_v1.h>
 //Define Variables we'll be connecting to
 double Setpoint_ch0, Setpoint_ch1, Input_01, Input_02, Output_01, Output_02;
+double temperature_ch0, temperature_ch1;
 //Specify the links and initial tuning parameters
 double Kp_01=5.0, Ki_01=0.001, Kd_01=0.0;
 double Kp_02=5.0, Ki_02=0.001, Kd_02=0.0;
@@ -533,6 +275,8 @@ void setupPID() {
 int idx_ch0Readings = 0, idx_ch1Readings;
 double t_ch0Readings[TEMP_AVG_ARR_SIZE] = {0.0};
 double t_ch1Readings[TEMP_AVG_ARR_SIZE] = {0.0};
+double t_ch0_raw, t_ch1_raw;
+double temperatureLast_ch0 = 0.0, temperatureLast_ch1 = 0.0;
 double t_ch0Tot = 0.0, t_ch1Tot = 0.0;
 double t_ch0_fromLow = 1.0, t_ch0_fromHigh = 100.0, t_ch0_toLow = 1.0, t_ch0_toHigh = 100.0;
 double t_ch1_fromLow = 1.0, t_ch1_fromHigh = 100.0, t_ch1_toLow = 1.0, t_ch1_toHigh = 100.0;
@@ -586,7 +330,6 @@ void handleTemperature() {
     temperature_ch1 = Setpoint_ch1;
   }
 }
-
 void setupThermocouples() {
   if (!thermocouple_ch0.begin()) {
     //Serial.println("ERROR.");
@@ -631,115 +374,10 @@ void handleCal() {
 }
 
 //
-// websockets 
-//
-void setupWebsocket() {
-    // Route for root / web page
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){ // https://github.com/me-no-dev/ESPAsyncWebServer
-    //request->send(1, html_file, char());
-    //AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", html_file);
-    //response->addHeader("Server","ESP Async Web Server");
-    //request->send(response);
-
-    //request->send_P(200, "text/html", html_file);
-    request->send(LittleFS, "/MAIN.html");
-
-    //request->send(LittleFS, "/MAIN.html", String(), false, processor);
-    //request->send(SPIFFS, "/index.html", String(), false, processor);
-  });
-    // Route for root / web page
-  server.on("/SCHEDULES.html", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/SCHEDULES.html");
-  });
-    // Route for root / web page
-  server.on("/MAIN.html", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/MAIN.html");
-  });
-  server.begin();
-  webSocket.begin();
-  webSocket.onEvent(webSocketEvent);
-}
-void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length)
-{
-  // num - number of connections. maximum of 5
-  /*
-    type is the response type:
-    0 – WStype_ERROR
-    1 – WStype_DISCONNECTED
-    2 – WStype_CONNECTED
-    3 – WStype_TEXT
-    4 – WStype_BIN
-    5 – WStype_FRAGMENT_TEXT_START
-    6 – WStype_FRAGMENT_BIN_START
-    7 – WStype_FRAGMENT
-    8 – WStype_FRAGMENT_FIN
-    9 – WStype_PING
-    10- WStype_PONG - reply from ping
-  */
-  // payload - the data (note this is a pointer)
-
-  if(type == WStype_TEXT)
-  {
-    /*String payload_str = String((char*) payload);
-
-    if(payload_str == "CMD-START_PROFILE") {
-      ui_StartProfile = true;
-    }
-    if(payload_str == "CMD-STOP_PROFILE") {
-      ui_StopProfile = true;
-    }*/
-    
-    DynamicJsonDocument jsonBuffer(128);
-    deserializeJson(jsonBuffer, payload);
-    const char* topic = jsonBuffer["topic"];
-    if(strcmp(topic, "CMD-START_PROFILE") == 0) {
-      ui_StartProfile = true;
-    }
-    if(strcmp(topic, "CMD-STOP_PROFILE") == 0) {
-      ui_StopProfile = true;
-    }
-    if(strcmp(topic, "CMD-CHANGE_MODE") == 0) {
-      if (Mode >= NUMER_OF_MODES) {
-        Mode = 1;
-      } else {
-        Mode++;
-      }
-    }
-    if(strcmp(topic, "CMD-RELEASE_HOLD") == 0) {
-      ui_Segment_HoldRelease = true;
-    }
-    if(strcmp(topic, "CMD-NEXT_SCHEDULE") == 0) {
-      if (ui_SelectedSchedule >= NUMBER_OF_SCHEDULES -1) {
-        ui_SelectedSchedule = 0;
-      } else {
-        ui_SelectedSchedule++;
-      }
-    }
-    if(strcmp(topic, "CMD-PREV_SCHEDULE") == 0) {
-      if (ui_SelectedSchedule <= 0) {
-        ui_SelectedSchedule = NUMBER_OF_SCHEDULES - 1;
-      } else {
-        ui_SelectedSchedule--;
-      }
-    }
-
-
-  } 
-    else  // event is not TEXT. Display the details in the serial monitor
-  {
-    Serial.print("WStype = ");   Serial.println(type);  
-    Serial.print("WS payload = ");
-    // since payload is a pointer we need to type cast to char
-    for(int i = 0; i < length; i++) { Serial.print((char) payload[i]); }
-    Serial.println();
-  }
-}
-
-//
 // ota 
 //
-#define OTA_PASSWORD              "ProFiBus@12"
-#define OTA_HOSTNAME              "Kiln-"
+#define OTA_PASSWORD "ProFiBus@12"
+#define OTA_HOSTNAME "Kiln-"
 void setupOTA(){
   // Port defaults to 8266
   // ArduinoOTA.setPort(8266);
@@ -770,12 +408,52 @@ void setupOTA(){
   ArduinoOTA.begin();
 }
 
-void handleSafetyCircuit() {
-  SafetyInputLast = digitalRead(SAFETY_CIRCUIT_INPUT);
-  if (SafetyInputLast == HIGH) Safety_Ok = true;
-  else Safety_Ok = false;
-}
-
+//
+// profile sequence
+//
+#define SEGMENT_STATE_IDLE    0
+#define SEGMENT_STATE_RAMP    1
+#define SEGMENT_STATE_SOAK    2
+#define SEGMENT_STATE_HOLD    3
+#define SEGMENT_STATE_INIT    4
+#define SEGMENT_STATE_START   5
+#define NUMBER_OF_SCHEDULES   5
+#define NUMBER_OF_SEGMENTS    10
+#define RATE_TIMER_PERIOD     1000
+#define RAMP_TIMER_PERIOD     1000
+uint16_t SOAK_TIMER_PERIOD = 0;
+unsigned long RampTimer, SoakTimer, RateTimer;
+bool RampTimerEnabled = false;
+bool SoakTimerEnabled = false;
+uint16_t ProfileSequence = SEGMENT_STATE_IDLE;
+uint16_t SegmentIndex = 0;
+bool Segment_CheckDirection = false;
+bool Segment_WillIncrement_Ch0 = false;
+bool Segment_WillIncrement_Ch1 = false;
+bool Segment_AtTemp_Ch0 = false;
+bool Segment_AtTemp_Ch1 = false;
+double MeasuredRatePerHour_ch0, MeasuredRatePerHour_ch1;
+struct TIME {
+  uint16_t hours;
+  uint16_t minutes;
+  uint16_t seconds;
+  uint16_t milliseconds;
+} Segment_TimeRemaining; 
+struct SCHEDULE_SEGMENT { // 1 segment is 30 bytes when MAX_STRING_LENGTH = 15
+  char Name[MAX_STRING_LENGTH] = {'\0'}; // char is 1 byte 15
+  bool Enabled; // bool is 1 byte
+  bool HoldEnabled; // bool is 1 byte
+  double Setpoint;    // in degrees(C) // double is 8 bytes
+  uint16_t RampRate;  // in degrees(C)/hour // uint16_t is 2 bytes
+  uint16_t SoakTime;  // in minutes // uint16_t is 2 bytes
+  uint8_t State; // uint8_t is 1 bytes
+};
+struct SCHEDULE { // each schedule is 303 bytes when NUMBER_OF_SEGMENTS = 10 and MAX_STRING_LENGTH = 15
+  char Name[MAX_STRING_LENGTH] = {'\0'}; // char is 1 byte
+  bool CMD_Select; // bool is 1 byte
+  bool STS_Select; // bool is 1 byte
+  SCHEDULE_SEGMENT Segments[NUMBER_OF_SEGMENTS]; // 1 segment is 30 - when NUMBER_OF_SEGMENTS = 10 this is 300
+} Schedules[NUMBER_OF_SCHEDULES],LoadedSchedule;
 void handleProfileSequence(){
   //
   // manage sequencing the profile
@@ -1067,11 +745,9 @@ void handleProfileSequence(){
       break;
   }
 }
-
 float RampChange (uint16_t RampRate, unsigned long ElapsedTime) {
   return (((float)RampRate/60.0)/(60.0/((float)ElapsedTime/1000.0)));
 }
-
 void setSchedule () {
   int idxSelectedSchedule = 0;
   bool setSchedule = false;
@@ -1132,9 +808,183 @@ void setSchedule () {
 }
 
 //
+// safety 
+//
+#define THERMAL_RUNAWAY_TEMPERATURE_TIMER 120000 // 10000 is 10 seconds
+#define THERMAL_RUNAWAY_RATE_TIMER 600000 // 120000 i2 2 min
+bool TemperatureDifferenceDetected = false;
+bool RateDifferenceDetected = false;
+double Tolerance_Rate = 60.0, Tolerance_Temperature = 200.0;
+unsigned int ThermalRunawayTemperature_Timer = millis();
+unsigned int ThermalRunawayRate_Timer = millis();
+void handleThermalRunaway() {
+
+  switch (ProfileSequence) {
+    case SEGMENT_STATE_IDLE:
+      break;
+    case SEGMENT_STATE_INIT:
+      break;
+    case SEGMENT_STATE_START:
+      break;
+    case SEGMENT_STATE_RAMP:
+      /* ch0 */
+      if ((MeasuredRatePerHour_ch0 > LoadedSchedule.Segments[SegmentIndex].RampRate + Tolerance_Rate) || 
+          (MeasuredRatePerHour_ch0 < LoadedSchedule.Segments[SegmentIndex].RampRate - Tolerance_Rate)) {
+            RateDifferenceDetected = true;
+          }
+      /* ch1 */
+      if ((MeasuredRatePerHour_ch1 > LoadedSchedule.Segments[SegmentIndex].RampRate + Tolerance_Rate) || 
+          (MeasuredRatePerHour_ch1 < LoadedSchedule.Segments[SegmentIndex].RampRate - Tolerance_Rate)) {
+            RateDifferenceDetected = true;
+          }
+      break;
+    case SEGMENT_STATE_SOAK:
+      /* ch0 */
+      if ((temperature_ch0 > LoadedSchedule.Segments[SegmentIndex].Setpoint + Tolerance_Temperature) || 
+          (temperature_ch0 < LoadedSchedule.Segments[SegmentIndex].Setpoint - Tolerance_Temperature)) {
+            TemperatureDifferenceDetected = true;
+          }
+      /* ch1 */
+      if ((temperature_ch1 > LoadedSchedule.Segments[SegmentIndex].Setpoint + Tolerance_Temperature) || 
+          (temperature_ch1 < LoadedSchedule.Segments[SegmentIndex].Setpoint - Tolerance_Temperature)) {
+            TemperatureDifferenceDetected = true;
+          }
+      break;
+  }
+  // check temperature difference
+  unsigned int ThermalRunawayTemperatureTimer_Elapsed = millis() - ThermalRunawayTemperature_Timer;
+  if (ThermalRunawayTemperatureTimer_Elapsed > THERMAL_RUNAWAY_TEMPERATURE_TIMER || !TemperatureDifferenceDetected) {
+    if (TemperatureDifferenceDetected) {
+      ThermalRunawayDetected = true;
+    } else {
+      ThermalRunawayTemperature_Timer = millis();
+    }
+  }
+  TemperatureDifferenceDetected = false;
+  // check rate difference
+  unsigned int ThermalRunawayRateTimer_Elapsed = millis() - ThermalRunawayRate_Timer;
+  if (ThermalRunawayRateTimer_Elapsed > THERMAL_RUNAWAY_RATE_TIMER || !RateDifferenceDetected) {
+    if (RateDifferenceDetected) {
+      ThermalRunawayDetected = true;
+    } else {
+      ThermalRunawayRate_Timer = millis();
+    }
+  }
+  RateDifferenceDetected = false;
+  // need to physically press the stop button to reset
+  if (!Safety_Ok || ui_ThermalRunawayOverride) {
+    ThermalRunawayTemperature_Timer = millis();
+    ThermalRunawayRate_Timer = millis();
+    ThermalRunawayDetected = false;
+  }
+
+}
+void handleSafetyCircuit() {
+  SafetyInputLast = digitalRead(SAFETY_CIRCUIT_INPUT);
+  if (SafetyInputLast == HIGH) Safety_Ok = true;
+  else Safety_Ok = false;
+}
+void handleMainContactor() {
+  if (Safety_Ok && !ThermalRunawayDetected && Mode != SIMULATION_MODE) {
+    digitalWrite(MAIN_CONTACTOR_OUTPUT, LOW);
+  } else {
+    digitalWrite(MAIN_CONTACTOR_OUTPUT, HIGH);
+  }
+}
+
+//
 // modbus
 //
+#include <ModbusRTU.h> // https://github.com/emelianov/modbus-esp8266
+#include <ModbusIP_ESP8266.h>
+#define SLAVE_ID                  1
+/* coils (RW) */
+#define MB_CMD_SELECT_SCHEDULE    1
+#define MB_CMD_START_PROFILE      2
+#define MB_CMD_STOP_PROFILE       3
+#define MB_CMD_HOLD_RELEASE       4
+#define MB_CMD_THERM_OVERRIDE     5
+#define MB_CMD_WRITE_EEPROM       6
+#define MB_SCH_SEG_ENABLED        7
+#define MB_SCH_SEG_HOLD_EN        8
+#define MB_CMD_CAL_CH0_LOW        9
+#define MB_CMD_CAL_CH1_LOW        10
+#define MB_CMD_CAL_CH0_HIGH       11
+#define MB_CMD_CAL_CH1_HIGH       12
+/* input status (R) */
+#define MB_STS_SSR_01             1
+#define MB_STS_SSR_02             2
+#define MB_STS_RELEASE_REQ        3
+#define MB_STS_SAFETY_OK          4
+#define MB_STS_IN_PROCESS         5
+#define MB_STS_THERMAL_RUNAWAY    6
+#define MB_STS_EEPROM_WRITTEN     7 //50
+/* holding registers (RW) 16 bit */
+#define MB_MODE                   1
+#define MB_CMD_SELECTED_SCHEDULE  2
+#define MB_CMD_SETPOINT           3
+#define MB_PID_P_01               5
+#define MB_PID_I_01               7
+#define MB_PID_D_01               9
+#define MB_PID_P_02               11
+#define MB_PID_I_02               13
+#define MB_PID_D_02               15
+#define MB_SCH_NAME               17
+#define MB_SCH_SEG_NAME           25
+#define MB_SCH_SEG_SETPOINT       33
+#define MB_SCH_SEG_RAMP_RATE      35
+#define MB_SCH_SEG_SOAK_TIME      36
+#define MB_SCH_SEG_SELECTED       37
+#define MB_SCH_SELECTED           38
+#define MB_CAL_TEMP_ACT_CH0       39 
+#define MB_CAL_TEMP_ACT_CH1       41
+/* input registers (R) 16 bit */
+#define MB_HEARTBEAT              1
+#define MB_STS_REMAINING_TIME_H   2
+#define MB_STS_REMAINING_TIME_M   3
+#define MB_STS_REMAINING_TIME_S   4
+#define MB_STS_TEMPERATURE_01     5
+#define MB_STS_TEMPERATURE_02     7
+#define MB_STS_PID_01_OUTPUT      9
+#define MB_STS_PID_02_OUTPUT      11
+#define MB_NUMBER_OF_SCHEDULES    13
+#define MB_NUMBER_OF_SEGMENTS     14
+#define MB_STS_SEGMENT_STATE      15
+#define MB_STS_SEGMENT_NAME       16
+#define MB_STS_SCHEDULE_NAME      24 // this is 8 regs long - next should start at 32
+#define MB_STS_TEMP_01_RAW        32
+#define MB_STS_TEMP_02_RAW        34
+/* instance */
+ModbusRTU mb_rtu;
+ModbusIP mb_ip;
 unsigned long EepromWritten_Timer = millis();
+union floatAsBytes {
+  float fval;
+  uint16_t ui[2];
+  byte bval[4];
+};
+union charAsUnit16 {
+  uint16_t reg;
+  char c[2];
+};
+void DoubleToIreg(uint16_t reg, double val) {
+  floatAsBytes flt; 
+  flt.fval = val;
+  mb_rtu.Ireg(reg, flt.ui[0]);
+  mb_rtu.Ireg(reg+1, flt.ui[1]);
+}
+void DoubleToHreg(uint16_t reg, double val) {
+  floatAsBytes flt; 
+  flt.fval = val;
+  mb_rtu.Hreg(reg, flt.ui[0]);
+  mb_rtu.Hreg(reg+1, flt.ui[1]);
+}
+double HregToDouble(uint16_t reg) {
+  floatAsBytes flt; 
+  flt.ui[0] = mb_rtu.Hreg(reg);
+  flt.ui[1] = mb_rtu.Hreg(reg+1);
+  return flt.fval;
+}
 void handleModbus() {
   /* prevent arrays from going out of bounds from ui */
   if (ui_SelectedSchedule >= NUMBER_OF_SCHEDULES) ui_SelectedSchedule = NUMBER_OF_SCHEDULES - 1;
@@ -1694,6 +1544,111 @@ void applyDefaultSettings() {
   t_ch1_fromLow = 1.0, t_ch1_fromHigh = 2000.0, t_ch1_toLow = 1.0, t_ch1_toHigh = 2000.0;
 
   writeSettingsToEeeprom();
+}
+
+//
+// websockets 
+//
+void setupWebsocket() {
+    // Route for root / web page
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){ // https://github.com/me-no-dev/ESPAsyncWebServer
+    //request->send(1, html_file, char());
+    //AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", html_file);
+    //response->addHeader("Server","ESP Async Web Server");
+    //request->send(response);
+
+    //request->send_P(200, "text/html", html_file);
+    request->send(LittleFS, "/MAIN.html");
+
+    //request->send(LittleFS, "/MAIN.html", String(), false, processor);
+    //request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
+    // Route for root / web page
+  server.on("/SCHEDULES.html", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(LittleFS, "/SCHEDULES.html");
+  });
+    // Route for root / web page
+  server.on("/MAIN.html", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(LittleFS, "/MAIN.html");
+  });
+  server.begin();
+  webSocket.begin();
+  webSocket.onEvent(webSocketEvent);
+}
+void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length)
+{
+  // num - number of connections. maximum of 5
+  /*
+    type is the response type:
+    0 – WStype_ERROR
+    1 – WStype_DISCONNECTED
+    2 – WStype_CONNECTED
+    3 – WStype_TEXT
+    4 – WStype_BIN
+    5 – WStype_FRAGMENT_TEXT_START
+    6 – WStype_FRAGMENT_BIN_START
+    7 – WStype_FRAGMENT
+    8 – WStype_FRAGMENT_FIN
+    9 – WStype_PING
+    10- WStype_PONG - reply from ping
+  */
+  // payload - the data (note this is a pointer)
+
+  if(type == WStype_TEXT)
+  {
+    /*String payload_str = String((char*) payload);
+
+    if(payload_str == "CMD-START_PROFILE") {
+      ui_StartProfile = true;
+    }
+    if(payload_str == "CMD-STOP_PROFILE") {
+      ui_StopProfile = true;
+    }*/
+    
+    DynamicJsonDocument jsonBuffer(128);
+    deserializeJson(jsonBuffer, payload);
+    const char* topic = jsonBuffer["topic"];
+    if(strcmp(topic, "CMD-START_PROFILE") == 0) {
+      ui_StartProfile = true;
+    }
+    if(strcmp(topic, "CMD-STOP_PROFILE") == 0) {
+      ui_StopProfile = true;
+    }
+    if(strcmp(topic, "CMD-CHANGE_MODE") == 0) {
+      if (Mode >= NUMER_OF_MODES) {
+        Mode = 1;
+      } else {
+        Mode++;
+      }
+    }
+    if(strcmp(topic, "CMD-RELEASE_HOLD") == 0) {
+      ui_Segment_HoldRelease = true;
+    }
+    if(strcmp(topic, "CMD-NEXT_SCHEDULE") == 0) {
+      if (ui_SelectedSchedule >= NUMBER_OF_SCHEDULES -1) {
+        ui_SelectedSchedule = 0;
+      } else {
+        ui_SelectedSchedule++;
+      }
+    }
+    if(strcmp(topic, "CMD-PREV_SCHEDULE") == 0) {
+      if (ui_SelectedSchedule <= 0) {
+        ui_SelectedSchedule = NUMBER_OF_SCHEDULES - 1;
+      } else {
+        ui_SelectedSchedule--;
+      }
+    }
+
+
+  } 
+    else  // event is not TEXT. Display the details in the serial monitor
+  {
+    Serial.print("WStype = ");   Serial.println(type);  
+    Serial.print("WS payload = ");
+    // since payload is a pointer we need to type cast to char
+    for(int i = 0; i < length; i++) { Serial.print((char) payload[i]); }
+    Serial.println();
+  }
 }
 
 //
