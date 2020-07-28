@@ -1,7 +1,7 @@
 {
     "C_Cpp.intelliSenseEngineFallback": "Enabled",
-    "arduino.path": "C:\\Program Files (x86)\\Arduino", 
-    "arduino.path_mac": "/Applications/Arduino.app", 
+    "arduino.path_windows": "C:\\Program Files (x86)\\Arduino", 
+    "arduino.path": "/Applications/Arduino.app", 
     "arduino.additionalUrls": "", 
     "arduino.logLevel": "info", 
     "arduino.enableUSBDetection": true, 
@@ -9,7 +9,7 @@
     "files.associations": {
         "queue": "cpp",
         "random": "cpp",
-        "cmath": "cpp"
+        "cmath": "cpp",
         "array": "cpp",
         "istream": "cpp",
         "memory": "cpp",
