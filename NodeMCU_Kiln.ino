@@ -278,8 +278,8 @@ double t_ch1Readings[TEMP_AVG_ARR_SIZE] = {0.0};
 double t_ch0_raw, t_ch1_raw;
 double temperatureLast_ch0 = 0.0, temperatureLast_ch1 = 0.0;
 double t_ch0Tot = 0.0, t_ch1Tot = 0.0;
-double t_ch0_fromLow = 1.0, t_ch0_fromHigh = 100.0, t_ch0_toLow = 1.0, t_ch0_toHigh = 100.0;
-double t_ch1_fromLow = 1.0, t_ch1_fromHigh = 100.0, t_ch1_toLow = 1.0, t_ch1_toHigh = 100.0;
+double t_ch0_fromLow = 1.0, t_ch0_fromHigh = 3000.0, t_ch0_toLow = 1.0, t_ch0_toHigh = 3000.0;
+double t_ch1_fromLow = 1.0, t_ch1_fromHigh = 3000.0, t_ch1_toLow = 1.0, t_ch1_toHigh = 3000.0;
 void handleTemperature() {
   t_ch0_raw = thermocouple_ch0.readFahrenheit();
   double t_ch0 = map(t_ch0_raw,t_ch0_fromLow,t_ch0_fromHigh,t_ch0_toLow,t_ch0_toHigh); //map(value,fromlow,fromhigh,tolow,tohigh);
@@ -1257,7 +1257,7 @@ void setupModbus() {
 //
 #include <EEPROM.h>
 #define EEPROM_SCH_START_ADDR     100
-#define EEPROM_SIZE               3000 // // can be between 4 and 4096 -schedules take up around 1515 bytes when MAX_STRING_LENGTH=16, NUMBER_OF_SCHEDULES=5, and NUMBER_OF_SEGMENTS=10
+#define EEPROM_SIZE               3000 // can be between 4 and 4096 -schedules take up around 1515 bytes when MAX_STRING_LENGTH=16, NUMBER_OF_SCHEDULES=5, and NUMBER_OF_SEGMENTS=10
 void writeSettingsToEeeprom() {
   //Serial.println(F("Writing Schedule to EEPROM..."));
   int address = EEPROM_SCH_START_ADDR;
