@@ -133,27 +133,25 @@
       text-indent: 4px;
       color: #777777;
     }
-    .header-card {
+    .BANNER {
     position: fixed; 
     bottom: 0;
     left: 0;
     right: 0;
-    background: yellowgreen; /*rgba(128, 126, 126, 0.5); */
+    background:dimgray; /*rgba(128, 126, 126, 0.5); */
     color: white;
-    height: 40px;
-    font-size: 50%;
     }
 
   </style>
-<title>Kiln Controls</title>
+<title>Kiln Web UI</title>
 
 </head>
 <body>
 
   <div id='main'>
     <h2 style="text-align: center; color:#777777">MAIN</h2>
-    <p class="debug_raw">Received data = <span style="word-wrap:break-word"; id='rd'>---</span> </p>
-    <p style="position:absolute; top:0;" id="REFRESH_TIME">0</p>
+    <!-- <p class="debug_raw">Received data = <span style="word-wrap:break-word"; id='rd'>---</span> </p> -->
+    <!-- <p style="position:absolute; top:0;" id="REFRESH_TIME">0</p> -->
   </div>
 
   <div class="midbuttons" style="position:absolute; top:80px;" >
@@ -223,8 +221,11 @@
     </div>
   </div>
 
-  <div class="header-card">
-    <h1 style="text-align: center;">SAFETY CIRCUIT OK</h1>
+  <div class="BANNER" style="right: 50%; border-right: dimgray;" id="SAFETY_BANNER">
+    <p style="text-align: center;" id="SAFETY_BANNER_TEXT">SAFETY</p>
+  </div>
+  <div class="BANNER" style="left: 50%; border-left: dimgray;" id="THERMAL_BANNER">
+    <p style="text-align: center;" id="THERMAL_BANNER_TEXT">THERMAL MONITORING</p>
   </div>
 
 </body>
@@ -241,7 +242,7 @@
   //  window.location.reload(1);
   // }, 300000);
 
-  setInterval(function(){ document.getElementById('REFRESH_TIME').innerHTML = Math.round(b.getTimeLeft()/1000); }, 500);
+  //setInterval(function(){ document.getElementById('REFRESH_TIME').innerHTML = Math.round(b.getTimeLeft()/1000); }, 500);
 
   b = new timer(function() {
     window.location.reload(1);
@@ -280,7 +281,7 @@
 
   function processReceivedCommand(evt) 
   {
-      document.getElementById('rd').innerHTML = evt.data;
+      //document.getElementById('rd').innerHTML = evt.data;
 
       var obj = JSON.parse(evt.data);
       if (obj.topic == "status") {
@@ -331,6 +332,24 @@
             document.getElementById('HOLD_BUTTON').style.visibility='visible';
           } else {
             document.getElementById('HOLD_BUTTON').style.visibility='hidden';
+          }
+          var thermalbanner = document.getElementById('THERMAL_BANNER');
+          var thermalbannertext = document.getElementById('THERMAL_BANNER_TEXT');
+          if (obj.data.id11) {
+            safetybannertext.innerText = "THERMAL MONITORING OK";
+            thermalbannertext.style.backgroundColor = "yellowGreen";
+          } else {
+            thermalbannertext.innerText = "THERMAL MONITORING NOT OK";
+            thermalbanner.style.backgroundColor = "tomato";
+          }
+          var safetybanner = document.getElementById('SAFETY_BANNER');
+          var safetybannertext = document.getElementById('SAFETY_BANNER_TEXT');
+          if (obj.data.id11) {
+            safetybannertext.innerText = "SAFETY CIRCUIT OK";
+            safetybanner.style.backgroundColor = "yellowGreen";
+          } else {
+            safetybannertext.innerText = "SAFETY CIRCUIT NOT OK";
+            safetybanner.style.backgroundColor = "tomato";
           }
       }
   }
