@@ -1522,6 +1522,9 @@ void setupWebsocket() {
   server.on("/MAIN.html", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(LittleFS, "/MAIN.html");
   });
+  server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(LittleFS, "/favicon.ico");
+  });
   server.begin();
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
