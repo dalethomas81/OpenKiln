@@ -335,7 +335,7 @@
           }
           var thermalbanner = document.getElementById('THERMAL_BANNER');
           var thermalbannertext = document.getElementById('THERMAL_BANNER_TEXT');
-          if (obj.data.id11) {
+          if (!obj.data.id11) {
             thermalbannertext.innerText = "THERMAL MONITORING OK";
             thermalbanner.style.backgroundColor = "yellowGreen";
           } else {

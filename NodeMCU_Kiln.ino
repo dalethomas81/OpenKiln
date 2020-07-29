@@ -1710,9 +1710,8 @@ void setup() {
   Serial.println(WiFi.localIP());
 }
 
-//
-// loop
-//
+
+/* loop */
 bool HeartbeatOn = false;
 void loop() {
 
