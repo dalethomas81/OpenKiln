@@ -280,7 +280,7 @@ double temperatureLast_ch0 = 0.0, temperatureLast_ch1 = 0.0;
 double t_ch0Tot = 0.0, t_ch1Tot = 0.0;
 double t_ch0_fromLow = 1.0, t_ch0_fromHigh = 3000.0, t_ch0_toLow = 1.0, t_ch0_toHigh = 3000.0;
 double t_ch1_fromLow = 1.0, t_ch1_fromHigh = 3000.0, t_ch1_toLow = 1.0, t_ch1_toHigh = 3000.0;
-#define TEMPERATURE_SAMPLE_RATE 100
+#define TEMPERATURE_SAMPLE_RATE 10
 unsigned long SampleTemperature_Timer = millis();
 void handleTemperature() {
   t_ch0_raw = thermocouple_ch0.readFahrenheit();
@@ -1432,7 +1432,7 @@ void readSettingsFromEeeprom() {
 // initialization
 //
 const char version[] = "build "  __DATE__ " " __TIME__; 
-const char Initialized[] = {"Initialized01"};
+const char Initialized[] = {"Initialized02"};
 void checkInit(){
   Serial.println();
   Serial.println(F("Checking initialization..."));
@@ -1450,7 +1450,7 @@ void checkInit(){
     }
   }*/
   if (writeDefaults) {
-    //applyDefaultSettings();
+    applyDefaultSettings();
     makeInitialized();
   }
 }

@@ -105,11 +105,10 @@
       background:linear-gradient(to bottom, #378de5 5%, #79bbff 100%);
 	    background-color:#378de5;
     }
-    .debug_raw
-    {
+    .debug_raw {
       position:absolute;
-      bottom: 20px;
-      left: 10px;
+      top: 35px;
+      left: 0px;
     }
     .midbuttons {
     width:90%;
@@ -134,6 +133,16 @@
       text-indent: 4px;
       color: #777777;
     }
+    .header-card {
+    position: fixed; 
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: yellowgreen; /*rgba(128, 126, 126, 0.5); */
+    color: white;
+    height: 40px;
+    font-size: 50%;
+    }
 
   </style>
 <title>Kiln Controls</title>
@@ -144,7 +153,7 @@
   <div id='main'>
     <h2 style="text-align: center; color:#777777">MAIN</h2>
     <p class="debug_raw">Received data = <span style="word-wrap:break-word"; id='rd'>---</span> </p>
-    <p id="REFRESH_TIME">0</p>
+    <p style="position:absolute; top:0;" id="REFRESH_TIME">0</p>
   </div>
 
   <div class="midbuttons" style="position:absolute; top:80px;" >
@@ -214,6 +223,10 @@
     </div>
   </div>
 
+  <div class="header-card">
+    <h1 style="text-align: center;">SAFETY CIRCUIT OK</h1>
+  </div>
+
 </body>
 
 <script>
@@ -228,7 +241,7 @@
   //  window.location.reload(1);
   // }, 300000);
 
-  setInterval(function(){ document.getElementById('REFRESH_TIME').innerHTML = b.getTimeLeft(); }, 500);
+  setInterval(function(){ document.getElementById('REFRESH_TIME').innerHTML = Math.round(b.getTimeLeft()/1000); }, 500);
 
   b = new timer(function() {
     window.location.reload(1);
