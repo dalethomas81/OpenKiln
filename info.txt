@@ -1,0 +1,5 @@
+when adding a file to .gitignore that has already been included, open a terminal in VSCODE and run the git commands below.
+
+git rm -r --cached .
+git add .
+git commit -m 'Removing ignored files'
