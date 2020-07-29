@@ -1,4 +1,4 @@
-/*********
+/****************************************
   Board settings:
     Board: NodeMCU 1.0 (ESP-12E Module)
     Flash Size: 4M (FS:1MBOTA:~1019KB)
@@ -10,13 +10,11 @@
     Upload Speed: 115200
     Erase Flash: Only Sketch (if using emulated EEPROM 'All Flash Contents' will overwrite it!)
     Builtin LED: 2
-*********/
+*****************************************/
 
 // NOTE: ****** kiln was flashed with ESP Board version 2.7.2
 
-//
-// defines
-//
+/* defines */
 #define SERIAL_BAUD_RATE          115200
 #define HEARTBEAT_TIME            1000
 
@@ -25,16 +23,12 @@
 #define SIMULATION_MODE           3
 #define NUMER_OF_MODES            3 // make this equal to the last mode to trap errors
 
-//
-// init variables
-//
+/* init variables */
 bool Safety_Ok = false;
 uint16_t Mode = AUTOMATIC_MODE,  Mode_Last = AUTOMATIC_MODE;
 bool ThermalRunawayDetected = false, ui_ThermalRunawayOverride = false;
 
-//
-// web server 
-//
+/* web server */
 #define WIFI_LISTENING_PORT       80
 #include <WebSocketsServer.h>  // Websockets by Markus Sattler https://github.com/Links2004/arduinoWebSockets
 WebSocketsServer webSocket = WebSocketsServer(WIFI_LISTENING_PORT+1);
@@ -42,9 +36,7 @@ WebSocketsServer webSocket = WebSocketsServer(WIFI_LISTENING_PORT+1);
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 AsyncWebServer server(WIFI_LISTENING_PORT);
 
-//
-// wifi
-//
+/* wifi */
 //#include <ESP8266WiFi.h>
 #define WIFI_SSID                 "Thomas_301"
 #define WIFI_PASSWORD             "RS232@12"
@@ -73,9 +65,7 @@ void checkWifi() {
   }
 }
 
-//
-// flash 
-//
+/* flash */
 #include "LittleFS.h" // need the upload tool here https://github.com/earlephilhower/arduino-esp8266littlefs-plugin
 void initLittleFS() {
  
@@ -138,9 +128,7 @@ void initLittleFS() {
     */
 }
 
-//
-// ota 
-//
+/* ota */
 #include <ArduinoOTA.h>
 #define OTA_PASSWORD "ProFiBus@12"
 #define OTA_HOSTNAME "Kiln-"
@@ -174,9 +162,7 @@ void setupOTA(){
   ArduinoOTA.begin();
 }
 
-//
-// i/o
-//
+/* i/o */
 #define SAFETY_CIRCUIT_INPUT      D0
 #define MAIN_CONTACTOR_OUTPUT     D4
 #define SSR_PIN_01                D1
@@ -189,9 +175,7 @@ void setupPins() {
   digitalWrite(MAIN_CONTACTOR_OUTPUT, HIGH);
 }
 
-//
-// pid
-//
+/* pid */
 #include <PID_v1.h>
 double Setpoint_ch0, Setpoint_ch1, Input_01, Input_02, Output_01, Output_02;
 double temperature_ch0, temperature_ch1;
@@ -262,9 +246,7 @@ void setupPID() {
   PID_02.SetMode(AUTOMATIC);
 }
 
-//
-// temperature
-//
+/* temperature */
 #include <SPI.h>
 #include "Adafruit_MAX31855.h"
 #define MAXCS_CH0   D8 // D8 is GPIO15 SPI (CS) on NodeMCU
@@ -348,9 +330,7 @@ void setupThermocouples() {
   
 }
 
-//
-// calibration
-//
+/* calibration */
 bool t_ch0_cal_low = false, t_ch1_cal_low = false;
 bool t_ch0_cal_high = false, t_ch1_cal_high = false;
 double t_ch0_actual = 100.0, t_ch1_actual = 100.0;
@@ -377,9 +357,7 @@ void handleCal() {
   }
 }
 
-//
-// profile sequence
-//
+/* profile */
 #define SEGMENT_STATE_IDLE    0
 #define SEGMENT_STATE_RAMP    1
 #define SEGMENT_STATE_SOAK    2
@@ -785,9 +763,7 @@ void setSchedule () {
   
 }
 
-//
-// safety 
-//
+/* safety */
 #define THERMAL_RUNAWAY_TEMPERATURE_TIMER 120000 // 10000 is 10 seconds
 #define THERMAL_RUNAWAY_RATE_TIMER 600000 // 120000 i2 2 min
 bool TemperatureDifferenceDetected = false;
@@ -871,9 +847,7 @@ void handleMainContactor() {
   }
 }
 
-//
-// modbus
-//
+/* modbus */
 #include <ModbusRTU.h> // https://github.com/emelianov/modbus-esp8266
 #include <ModbusIP_ESP8266.h>
 #define SLAVE_ID                  1
@@ -933,7 +907,6 @@ void handleMainContactor() {
 #define MB_STS_SCHEDULE_NAME      24 // this is 8 regs long - next should start at 32
 #define MB_STS_TEMP_01_RAW        32
 #define MB_STS_TEMP_02_RAW        34
-/* instance */
 ModbusRTU mb_rtu;
 ModbusIP mb_ip;
 int HEARTBEAT_VALUE = 0;
@@ -1256,9 +1229,7 @@ void setupModbus() {
   
 }
 
-//
-// eeprom 
-//
+/* eeprom */
 #include <EEPROM.h>
 #define EEPROM_SCH_START_ADDR     100
 #define EEPROM_SIZE               3000 // can be between 4 and 4096 -schedules take up around 1515 bytes when MAX_STRING_LENGTH=16, NUMBER_OF_SCHEDULES=5, and NUMBER_OF_SEGMENTS=10
@@ -1428,9 +1399,7 @@ void readSettingsFromEeeprom() {
 
 }
 
-//
-// initialization
-//
+/* initialization */
 const char version[] = "build "  __DATE__ " " __TIME__; 
 const char Initialized[] = {"Initialized02"};
 void checkInit(){
@@ -1528,9 +1497,7 @@ void applyDefaultSettings() {
   writeSettingsToEeeprom();
 }
 
-//
-// websockets 
-//
+/* websockets */
 #include <ArduinoJson.h>
 #include <StreamString.h>
 void setupWebsocket() {
@@ -1635,9 +1602,7 @@ void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length)
   }
 }
 
-//
-// setup
-//
+/* setup */
 unsigned long timer_heartbeat;
 void setup() {
   //
