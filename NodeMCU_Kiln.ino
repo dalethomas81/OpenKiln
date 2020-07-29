@@ -1525,6 +1525,9 @@ void setupWebsocket() {
   server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(LittleFS, "/favicon.ico");
   });
+  server.on("/apple-touch-icon.png", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(LittleFS, "/apple-touch-icon.png");
+  });
   server.begin();
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);

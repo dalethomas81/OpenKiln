@@ -1,5 +1,15 @@
 when adding a file to .gitignore that has already been included, open a terminal in VSCODE and run the git commands below.
+https://stackoverflow.com/questions/9750606/git-still-shows-files-as-modified-after-adding-to-gitignore
 
 git rm -r --cached .
 git add .
 git commit -m 'Removing ignored files'
+
+
+
+
+--------------------------------
+favicons
+https://icons8.com/icon/25058/potter's-wheel
+
+https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/ConfiguringWebApplications/ConfiguringWebApplications.html
