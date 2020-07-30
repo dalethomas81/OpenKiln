@@ -1,4 +1,4 @@
-/****************************************
+/*********
   Board settings:
     Board: NodeMCU 1.0 (ESP-12E Module)
     Flash Size: 4M (FS:1MBOTA:~1019KB)
@@ -1501,54 +1501,27 @@ void applyDefaultSettings() {
 #include <ArduinoJson.h>
 #include <StreamString.h>
 void setupWebsocket() {
-/*
-
-JSON body handling with ArduinoJson
-
-Endpoints which consume JSON can use a special handler to get ready to use JSON data in the request callback:
-
-#include "AsyncJson.h"
-#include "ArduinoJson.h"
-
-AsyncCallbackJsonWebHandler* handler = new AsyncCallbackJsonWebHandler("/rest/endpoint", [](AsyncWebServerRequest *request, JsonVariant &json) {
-  JsonObject& jsonObj = json.as<JsonObject>();
-  // ...
-});
-server.addHandler(handler);
-
-*/
-
+    // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){ // https://github.com/me-no-dev/ESPAsyncWebServer
+    //request->send(1, html_file, char());
+    //AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", html_file);
+    //response->addHeader("Server","ESP Async Web Server");
+    //request->send(response);
+
+    //request->send_P(200, "text/html", html_file);
     request->send(LittleFS, "/MAIN.html");
+
+    //request->send(LittleFS, "/MAIN.html", String(), false, processor);
+    //request->send(SPIFFS, "/index.html", String(), false, processor);
   });
+    // Route for root / web page
   server.on("/SCHEDULES.html", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(LittleFS, "/SCHEDULES.html");
   });
+    // Route for root / web page
   server.on("/MAIN.html", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(LittleFS, "/MAIN.html");
   });
-  server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/favicon.ico");
-  });
-  server.on("/apple-touch-icon.png", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/apple-touch-icon.png");
-  });
-  server.on("/favicon-16x16.png", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/favicon-16x16.png");
-  });
-  server.on("/apple-touch-icon.png", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/apple-touch-icon.png");
-  });
-  server.on("/favicon-32x32.png", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/favicon-32x32.png");
-  });
-  server.on("/favicon-16x16.png", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/favicon-16x16.png");
-  });
-  server.on("/site.webmanifest", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/site.webmanifest");
-  });
-
   server.begin();
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
