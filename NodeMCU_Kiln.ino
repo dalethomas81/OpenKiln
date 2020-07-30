@@ -15,6 +15,7 @@
 // NOTE: ****** kiln was flashed with ESP Board version 2.7.2
 
 /* defines */
+#define WIFI_LISTENING_PORT       80
 #define SERIAL_BAUD_RATE          115200
 #define HEARTBEAT_TIME            1000
 
@@ -29,17 +30,16 @@ uint16_t Mode = AUTOMATIC_MODE,  Mode_Last = AUTOMATIC_MODE;
 bool ThermalRunawayDetected = false, ui_ThermalRunawayOverride = false;
 
 /* web server */
-#define WIFI_LISTENING_PORT       80
-#include <WebSocketsServer.h>  // Websockets by Markus Sattler https://github.com/Links2004/arduinoWebSockets
-WebSocketsServer webSocket = WebSocketsServer(WIFI_LISTENING_PORT+1);
 //#include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 AsyncWebServer server(WIFI_LISTENING_PORT);
+#include <WebSocketsServer.h>  // Websockets by Markus Sattler https://github.com/Links2004/arduinoWebSockets
+WebSocketsServer webSocket = WebSocketsServer(WIFI_LISTENING_PORT+1);
 
 /* wifi */
 //#include <ESP8266WiFi.h>
-#define WIFI_SSID                 "Thomas_301"
-#define WIFI_PASSWORD             "RS232@12"
+#define WIFI_SSID       "Thomas_301"
+#define WIFI_PASSWORD   "RS232@12"
 void connectWifi(int delaytime) { 
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -130,8 +130,8 @@ void initLittleFS() {
 
 /* ota */
 #include <ArduinoOTA.h>
-#define OTA_PASSWORD "ProFiBus@12"
-#define OTA_HOSTNAME "Kiln-"
+#define OTA_PASSWORD    "ProFiBus@12"
+#define OTA_HOSTNAME    "Kiln-"
 void setupOTA(){
   // Port defaults to 8266
   // ArduinoOTA.setPort(8266);
