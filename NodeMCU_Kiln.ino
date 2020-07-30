@@ -849,7 +849,7 @@ void handleMainContactor() {
 
 /* modbus */
 #include <ModbusRTU.h> // https://github.com/emelianov/modbus-esp8266
-#include <ModbusIP_ESP8266.h>
+//#include <ModbusIP_ESP8266.h>
 #define SLAVE_ID                  1
 /* coils (RW) */
 #define MB_CMD_SELECT_SCHEDULE    1
@@ -908,7 +908,7 @@ void handleMainContactor() {
 #define MB_STS_TEMP_01_RAW        32
 #define MB_STS_TEMP_02_RAW        34
 ModbusRTU mb_rtu;
-ModbusIP mb_ip;
+//ModbusIP mb_ip;
 int HEARTBEAT_VALUE = 0;
 bool ui_EepromWritten = false;
 unsigned long EepromWritten_Timer = millis();
@@ -1052,7 +1052,7 @@ void handleModbus() {
   DoubleToIreg(MB_STS_TEMP_02_RAW, t_ch1_raw);
 
   mb_rtu.task();
-  mb_ip.task();
+  //mb_ip.task();
   
   /* coils (RW) */
   ui_SelectSchedule = mb_rtu.Coil(MB_CMD_SELECT_SCHEDULE);
@@ -1135,7 +1135,7 @@ void handleModbus() {
 }
 void setupModbus() {
   //Serial.begin(SERIAL_BAUD_RATE, SERIAL_8N1);
-  mb_ip.server();   //Start Modbus IP
+  //mb_ip.server();   //Start Modbus IP
   mb_rtu.begin(&Serial);
   mb_rtu.slave(SLAVE_ID);
   /* coils (RW) */
