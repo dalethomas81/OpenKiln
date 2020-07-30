@@ -1,4 +1,4 @@
-/*********
+/****************************************
   Board settings:
     Board: NodeMCU 1.0 (ESP-12E Module)
     Flash Size: 4M (FS:1MBOTA:~1019KB)
@@ -30,11 +30,41 @@ bool ThermalRunawayDetected = false, ui_ThermalRunawayOverride = false;
 
 /* web server */
 #define WIFI_LISTENING_PORT       80
-#include <WebSocketsServer.h>  // Websockets by Markus Sattler https://github.com/Links2004/arduinoWebSockets
-WebSocketsServer webSocket = WebSocketsServer(WIFI_LISTENING_PORT+1);
+//#include <WebSocketsServer.h>  // Websockets by Markus Sattler https://github.com/Links2004/arduinoWebSockets
+//WebSocketsServer webSocket = WebSocketsServer(WIFI_LISTENING_PORT+1);
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 AsyncWebServer server(WIFI_LISTENING_PORT);
+
+AsyncWebSocket webSocket("/ws"); // access at ws://[esp ip]/ws
+AsyncEventSource events("/events"); // event source (Server-Sent events)
+
+void onRequest(AsyncWebServerRequest *request){
+  //Handle Unknown Request
+  request->send(404);
+}
+
+void onBody(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+  //Handle body
+}
+
+void onUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
+  //Handle upload
+}
+
+// void onEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
+//   //Handle WebSocket event
+// }
+
+
+
+
+
+
+
+
+
+
 
 /* wifi */
 //#include <ESP8266WiFi.h>
@@ -142,7 +172,17 @@ void setupOTA(){
   // No authentication by default
   //ArduinoOTA.setPassword((const char *)OTA_PASSWORD);
   ArduinoOTA.onStart([]() {
+    // Clean SPIFFS
     LittleFS.end();
+
+    // Disable client connections    
+    webSocket.enable(false);
+
+    // Advertise connected clients what's going on
+    webSocket.textAll("OTA Update Started");
+
+    // Close them
+    webSocket.closeAll();
     Serial.println("Start");
   });
   ArduinoOTA.onEnd([]() {
@@ -1498,109 +1538,254 @@ void applyDefaultSettings() {
 }
 
 /* websockets */
+#include "AsyncJson.h"
 #include <ArduinoJson.h>
 #include <StreamString.h>
 void setupWebsocket() {
-    // Route for root / web page
+/*
+
+JSON body handling with ArduinoJson
+
+Endpoints which consume JSON can use a special handler to get ready to use JSON data in the request callback:
+
+#include "AsyncJson.h"
+#include "ArduinoJson.h"
+
+AsyncCallbackJsonWebHandler* handler = new AsyncCallbackJsonWebHandler("/rest/endpoint", [](AsyncWebServerRequest *request, JsonVariant &json) {
+  JsonObject& jsonObj = json.as<JsonObject>();
+  // ...
+});
+server.addHandler(handler);
+
+*/
+  // attach AsyncWebSocket
+  webSocket.onEvent(onEvent);
+  server.addHandler(&webSocket);
+
+  // attach AsyncEventSource
+  server.addHandler(&events);
+
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){ // https://github.com/me-no-dev/ESPAsyncWebServer
-    //request->send(1, html_file, char());
-    //AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", html_file);
-    //response->addHeader("Server","ESP Async Web Server");
-    //request->send(response);
-
-    //request->send_P(200, "text/html", html_file);
     request->send(LittleFS, "/MAIN.html");
-
-    //request->send(LittleFS, "/MAIN.html", String(), false, processor);
-    //request->send(SPIFFS, "/index.html", String(), false, processor);
   });
-    // Route for root / web page
   server.on("/SCHEDULES.html", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(LittleFS, "/SCHEDULES.html");
   });
-    // Route for root / web page
   server.on("/MAIN.html", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(LittleFS, "/MAIN.html");
   });
+  server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(LittleFS, "/favicon.ico");
+  });
+  server.on("/apple-touch-icon.png", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(LittleFS, "/apple-touch-icon.png");
+  });
+  server.on("/favicon-16x16.png", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(LittleFS, "/favicon-16x16.png");
+  });
+  server.on("/apple-touch-icon.png", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(LittleFS, "/apple-touch-icon.png");
+  });
+  server.on("/favicon-32x32.png", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(LittleFS, "/favicon-32x32.png");
+  });
+  server.on("/favicon-16x16.png", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(LittleFS, "/favicon-16x16.png");
+  });
+  server.on("/site.webmanifest", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(LittleFS, "/site.webmanifest");
+  });
+
+  // attach filesystem root at URL /fs
+  server.serveStatic("/fs", SPIFFS, "/");
+
+  // Catch-All Handlers
+  // Any request that can not find a Handler that canHandle it
+  // ends in the callbacks below.
+  server.onNotFound(onRequest);
+  server.onFileUpload(onUpload);
+  server.onRequestBody(onBody);
+
   server.begin();
-  webSocket.begin();
-  webSocket.onEvent(webSocketEvent);
+
+  //server.begin();
+  //webSocket.begin();
+  //webSocket.onEvent(webSocketEvent);
 }
-void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length)
-{
-  // num - number of connections. maximum of 5
-  /*
-    type is the response type:
-    0 – WStype_ERROR
-    1 – WStype_DISCONNECTED
-    2 – WStype_CONNECTED
-    3 – WStype_TEXT
-    4 – WStype_BIN
-    5 – WStype_FRAGMENT_TEXT_START
-    6 – WStype_FRAGMENT_BIN_START
-    7 – WStype_FRAGMENT
-    8 – WStype_FRAGMENT_FIN
-    9 – WStype_PING
-    10- WStype_PONG - reply from ping
-  */
-  // payload - the data (note this is a pointer)
-
-  if(type == WStype_TEXT)
-  {
-    /*String payload_str = String((char*) payload);
-
-    if(payload_str == "CMD-START_PROFILE") {
-      ui_StartProfile = true;
-    }
-    if(payload_str == "CMD-STOP_PROFILE") {
-      ui_StopProfile = true;
-    }*/
-    
-    DynamicJsonDocument jsonBuffer(128);
-    deserializeJson(jsonBuffer, payload);
-    const char* topic = jsonBuffer["topic"];
-    if(strcmp(topic, "CMD-START_PROFILE") == 0) {
-      ui_StartProfile = true;
-    }
-    if(strcmp(topic, "CMD-STOP_PROFILE") == 0) {
-      ui_StopProfile = true;
-    }
-    if(strcmp(topic, "CMD-CHANGE_MODE") == 0) {
-      if (Mode >= NUMER_OF_MODES) {
-        Mode = 1;
+void onEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
+  if(type == WS_EVT_CONNECT){
+    //client connected
+    os_printf("ws[%s][%u] connect\n", server->url(), client->id());
+    client->printf("Hello Client %u :)", client->id());
+    client->ping();
+  } else if(type == WS_EVT_DISCONNECT){
+    //client disconnected
+    os_printf("ws[%s][%u] disconnect: %u\n", server->url(), client->id());
+  } else if(type == WS_EVT_ERROR){
+    //error was received from the other end
+    os_printf("ws[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t*)arg), (char*)data);
+  } else if(type == WS_EVT_PONG){
+    //pong message was received (in response to a ping request maybe)
+    os_printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len, (len)?(char*)data:"");
+  } else if(type == WS_EVT_DATA){
+    //data packet
+    AwsFrameInfo * info = (AwsFrameInfo*)arg;
+    if(info->final && info->index == 0 && info->len == len){
+      //the whole message is in a single frame and we got all of it's data
+      os_printf("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT)?"text":"binary", info->len);
+      if(info->opcode == WS_TEXT){
+        data[len] = 0;
+        os_printf("%s\n", (char*)data);
       } else {
-        Mode++;
+        for(size_t i=0; i < info->len; i++){
+          os_printf("%02x ", data[i]);
+        }
+        os_printf("\n");
+      }
+      if(info->opcode == WS_TEXT) {
+        
+
+        //client->text("I got your text message");
+
+        DynamicJsonDocument jsonBuffer(128);
+        deserializeJson(jsonBuffer, data);
+        const char* topic = jsonBuffer["topic"];
+        if(strcmp(topic, "CMD-START_PROFILE") == 0) {
+          ui_StartProfile = true;
+        }
+        if(strcmp(topic, "CMD-STOP_PROFILE") == 0) {
+          ui_StopProfile = true;
+        }
+        if(strcmp(topic, "CMD-CHANGE_MODE") == 0) {
+          if (Mode >= NUMER_OF_MODES) {
+            Mode = 1;
+          } else {
+            Mode++;
+          }
+        }
+        if(strcmp(topic, "CMD-RELEASE_HOLD") == 0) {
+          ui_Segment_HoldRelease = true;
+        }
+        if(strcmp(topic, "CMD-NEXT_SCHEDULE") == 0) {
+          if (ui_SelectedSchedule >= NUMBER_OF_SCHEDULES -1) {
+            ui_SelectedSchedule = 0;
+          } else {
+            ui_SelectedSchedule++;
+          }
+        }
+        if(strcmp(topic, "CMD-PREV_SCHEDULE") == 0) {
+          if (ui_SelectedSchedule <= 0) {
+            ui_SelectedSchedule = NUMBER_OF_SCHEDULES - 1;
+          } else {
+            ui_SelectedSchedule--;
+          }
+        }
+
+
+
+      } else {
+        client->binary("I got your binary message");
+      }
+    } else {
+      //message is comprised of multiple frames or the frame is split into multiple packets
+      if(info->index == 0){
+        if(info->num == 0)
+          os_printf("ws[%s][%u] %s-message start\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
+        os_printf("ws[%s][%u] frame[%u] start[%llu]\n", server->url(), client->id(), info->num, info->len);
+      }
+
+      os_printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT)?"text":"binary", info->index, info->index + len);
+      if(info->message_opcode == WS_TEXT){
+        data[len] = 0;
+        os_printf("%s\n", (char*)data);
+      } else {
+        for(size_t i=0; i < len; i++){
+          os_printf("%02x ", data[i]);
+        }
+        os_printf("\n");
+      }
+
+      if((info->index + len) == info->len){
+        os_printf("ws[%s][%u] frame[%u] end[%llu]\n", server->url(), client->id(), info->num, info->len);
+        if(info->final){
+          os_printf("ws[%s][%u] %s-message end\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
+          if(info->message_opcode == WS_TEXT)
+            client->text("I got your text message");
+          else
+            client->binary("I got your binary message");
+        }
       }
     }
-    if(strcmp(topic, "CMD-RELEASE_HOLD") == 0) {
-      ui_Segment_HoldRelease = true;
-    }
-    if(strcmp(topic, "CMD-NEXT_SCHEDULE") == 0) {
-      if (ui_SelectedSchedule >= NUMBER_OF_SCHEDULES -1) {
-        ui_SelectedSchedule = 0;
-      } else {
-        ui_SelectedSchedule++;
-      }
-    }
-    if(strcmp(topic, "CMD-PREV_SCHEDULE") == 0) {
-      if (ui_SelectedSchedule <= 0) {
-        ui_SelectedSchedule = NUMBER_OF_SCHEDULES - 1;
-      } else {
-        ui_SelectedSchedule--;
-      }
-    }
-
-
-  } 
-    else  // event is not TEXT. Display the details in the serial monitor
-  {
-    Serial.print("WStype = ");   Serial.println(type);  
-    Serial.print("WS payload = ");
-    // since payload is a pointer we need to type cast to char
-    for(int i = 0; i < length; i++) { Serial.print((char) payload[i]); }
-    Serial.println();
   }
 }
+
+// void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length)
+// {
+//   // num - number of connections. maximum of 5
+//   /*
+//     type is the response type:
+//     0 – WStype_ERROR
+//     1 – WStype_DISCONNECTED
+//     2 – WStype_CONNECTED
+//     3 – WStype_TEXT
+//     4 – WStype_BIN
+//     5 – WStype_FRAGMENT_TEXT_START
+//     6 – WStype_FRAGMENT_BIN_START
+//     7 – WStype_FRAGMENT
+//     8 – WStype_FRAGMENT_FIN
+//     9 – WStype_PING
+//     10- WStype_PONG - reply from ping
+//   */
+//   // payload - the data (note this is a pointer)
+
+//   if(type == WStype_TEXT)
+//   {
+    
+//     DynamicJsonDocument jsonBuffer(128);
+//     deserializeJson(jsonBuffer, payload);
+//     const char* topic = jsonBuffer["topic"];
+//     if(strcmp(topic, "CMD-START_PROFILE") == 0) {
+//       ui_StartProfile = true;
+//     }
+//     if(strcmp(topic, "CMD-STOP_PROFILE") == 0) {
+//       ui_StopProfile = true;
+//     }
+//     if(strcmp(topic, "CMD-CHANGE_MODE") == 0) {
+//       if (Mode >= NUMER_OF_MODES) {
+//         Mode = 1;
+//       } else {
+//         Mode++;
+//       }
+//     }
+//     if(strcmp(topic, "CMD-RELEASE_HOLD") == 0) {
+//       ui_Segment_HoldRelease = true;
+//     }
+//     if(strcmp(topic, "CMD-NEXT_SCHEDULE") == 0) {
+//       if (ui_SelectedSchedule >= NUMBER_OF_SCHEDULES -1) {
+//         ui_SelectedSchedule = 0;
+//       } else {
+//         ui_SelectedSchedule++;
+//       }
+//     }
+//     if(strcmp(topic, "CMD-PREV_SCHEDULE") == 0) {
+//       if (ui_SelectedSchedule <= 0) {
+//         ui_SelectedSchedule = NUMBER_OF_SCHEDULES - 1;
+//       } else {
+//         ui_SelectedSchedule--;
+//       }
+//     }
+
+
+//   } 
+//     else  // event is not TEXT. Display the details in the serial monitor
+//   {
+//     Serial.print("WStype = ");   Serial.println(type);  
+//     Serial.print("WS payload = ");
+//     // since payload is a pointer we need to type cast to char
+//     for(int i = 0; i < length; i++) { Serial.print((char) payload[i]); }
+//     Serial.println();
+//   }
+// }
 
 /* setup */
 unsigned long timer_heartbeat;
@@ -1699,6 +1884,7 @@ void loop() {
   //
   if (millis() - timer_heartbeat > HEARTBEAT_TIME ){
     timer_heartbeat = millis();
+    webSocket.cleanupClients(); // this cleans up the oldest client whent the maximum number has been reached.
     if (HEARTBEAT_VALUE>=100) {
       HEARTBEAT_VALUE = -100;
     } else {
@@ -1797,7 +1983,8 @@ void loop() {
       jsonBuffer["topic"] = "status";
       jsonBuffer["data"] = jsonBuffer_data;
       serializeJson(jsonBuffer,databuf);
-      webSocket.broadcastTXT(databuf);
+      //webSocket.broadcastTXT(databuf);
+      webSocket.textAll(databuf);
 /*
       jsonBuffer["topic"] = "STS-UPPER_TEMP";
       jsonBuffer["val"] = 123.0;//temperature_ch0;
@@ -1811,7 +1998,7 @@ void loop() {
 */
     }
   }
-  webSocket.loop();
+  //webSocket.loop();
   
   //
   // handle OTA requests
