@@ -1803,7 +1803,6 @@ void setup() {
   Serial.println(WiFi.localIP());
 }
 
-
 /* loop */
 bool HeartbeatOn = false;
 void loop() {
