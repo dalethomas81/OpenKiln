@@ -1567,8 +1567,7 @@ server.addHandler(handler);
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
 }
-void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length)
-{
+void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length) {
   // num - number of connections. maximum of 5
   /*
     type is the response type:
@@ -1641,6 +1640,94 @@ void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length)
     for(int i = 0; i < length; i++) { Serial.print((char) payload[i]); }
     Serial.println();
   }
+}
+void broadcastUpdates() {
+  /*
+  {
+  "topic":"gen",
+    "data": {
+      "id1": "cone 05 bisque",
+      "id2": "candle",
+      "id3": 1,
+      "id4": "hh:mm:ss",
+      "id5": 1200.0,
+      "id6": 1234.0,
+      "id7": 1234.0,
+      "id8": 1,
+      "id9": false,
+      "id10": false,
+      "id11": true,
+      "id12": -100
+    }
+  }
+  */
+  DynamicJsonDocument  jsonBuffer(400); // https://arduinojson.org/v6/assistant/
+  DynamicJsonDocument  jsonBuffer_data(400); // https://arduinojson.org/v6/assistant/
+  StreamString databuf;
+  jsonBuffer_data["id1"] = LoadedSchedule.Name; 
+  jsonBuffer_data["id2"] = LoadedSchedule.Segments[SegmentIndex].Name;
+  jsonBuffer_data["id3"] = LoadedSchedule.Segments[SegmentIndex].State;
+
+  char t_sec[17];
+  itoa(Segment_TimeRemaining.seconds,t_sec, 10);
+  char t_min[17];
+  itoa(Segment_TimeRemaining.minutes,t_min, 10);
+  char t_hour[17];
+  itoa(Segment_TimeRemaining.hours,t_hour, 10);
+
+  int j=0;
+  char time_remaining[55] = {'\0'};
+
+  if (Segment_TimeRemaining.hours < 10) {
+    time_remaining[j] = '0';
+    j++;
+  }
+
+  for (int i=0; t_hour[i] != '\0'; i++) {
+    time_remaining[j] = t_hour[i];
+    j++;
+  }
+
+  time_remaining[j] = ':';
+  j++;
+
+  if (Segment_TimeRemaining.minutes < 10) {
+    time_remaining[j] = '0';
+    j++;
+  }
+
+  for (int i=0; t_min[i] != '\0'; i++) {
+    time_remaining[j] = t_min[i];
+    j++;
+  }
+
+  time_remaining[j] = ':';
+  j++;
+
+  if (Segment_TimeRemaining.seconds < 10) {
+    time_remaining[j] = '0';
+    j++;
+  }
+
+  for (int i=0; t_sec[i] != '\0'; i++) {
+    time_remaining[j] = t_sec[i];
+    j++;
+  }
+
+  jsonBuffer_data["id4"] = time_remaining; // Segment_TimeRemaining.hours
+  jsonBuffer_data["id5"] = ui_Setpoint;
+  jsonBuffer_data["id6"] = round(temperature_ch0*10)/10; // shift the original value by one decimal, round it, shift it back
+  jsonBuffer_data["id7"] = round(temperature_ch1*10)/10;
+  jsonBuffer_data["id8"] = Mode;
+  jsonBuffer_data["id9"] = ui_Segment_HoldReleaseRequest;
+  jsonBuffer_data["id10"] = ThermalRunawayDetected;
+  jsonBuffer_data["id11"] = Safety_Ok;
+  jsonBuffer_data["id12"] = HEARTBEAT_VALUE;
+
+  jsonBuffer["topic"] = "status";
+  jsonBuffer["data"] = jsonBuffer_data;
+  serializeJson(jsonBuffer,databuf);
+  webSocket.broadcastTXT(databuf);
 }
 
 /* setup */
@@ -1740,6 +1827,7 @@ void loop() {
   //
   if (millis() - timer_heartbeat > HEARTBEAT_TIME ){
     timer_heartbeat = millis();
+    broadcastUpdates(); // send out websockets updates
     if (HEARTBEAT_VALUE>=100) {
       HEARTBEAT_VALUE = -100;
     } else {
@@ -1752,106 +1840,12 @@ void loop() {
     } else {
       HeartbeatOn = true;
       //Serial.println("Heartbeat On");
-
-      /*
-      {
-      "topic":"gen",
-        "data": {
-          "id1": "cone 05 bisque",
-          "id2": "candle",
-          "id3": 1,
-          "id4": "hh:mm:ss",
-          "id5": 1200.0,
-          "id6": 1234.0,
-          "id7": 1234.0,
-          "id8": 1,
-          "id9": false,
-          "id10": false,
-          "id11": true,
-          "id12": -100
-        }
-      }
-      */
-      DynamicJsonDocument  jsonBuffer(400); // https://arduinojson.org/v6/assistant/
-      DynamicJsonDocument  jsonBuffer_data(400); // https://arduinojson.org/v6/assistant/
-      StreamString databuf;
-      jsonBuffer_data["id1"] = LoadedSchedule.Name; 
-      jsonBuffer_data["id2"] = LoadedSchedule.Segments[SegmentIndex].Name;
-      jsonBuffer_data["id3"] = LoadedSchedule.Segments[SegmentIndex].State;
-
-      char t_sec[17];
-      itoa(Segment_TimeRemaining.seconds,t_sec, 10);
-      char t_min[17];
-      itoa(Segment_TimeRemaining.minutes,t_min, 10);
-      char t_hour[17];
-      itoa(Segment_TimeRemaining.hours,t_hour, 10);
-
-      int j=0;
-      char time_remaining[55] = {'\0'};
-
-      if (Segment_TimeRemaining.hours < 10) {
-        time_remaining[j] = '0';
-        j++;
-      }
-
-      for (int i=0; t_hour[i] != '\0'; i++) {
-        time_remaining[j] = t_hour[i];
-        j++;
-      }
-
-      time_remaining[j] = ':';
-      j++;
-
-      if (Segment_TimeRemaining.minutes < 10) {
-        time_remaining[j] = '0';
-        j++;
-      }
-
-      for (int i=0; t_min[i] != '\0'; i++) {
-        time_remaining[j] = t_min[i];
-        j++;
-      }
-
-      time_remaining[j] = ':';
-      j++;
-
-      if (Segment_TimeRemaining.seconds < 10) {
-        time_remaining[j] = '0';
-        j++;
-      }
-
-      for (int i=0; t_sec[i] != '\0'; i++) {
-        time_remaining[j] = t_sec[i];
-        j++;
-      }
-
-      jsonBuffer_data["id4"] = time_remaining; // Segment_TimeRemaining.hours
-      jsonBuffer_data["id5"] = ui_Setpoint;
-      jsonBuffer_data["id6"] = round(temperature_ch0*10)/10; // shift the original value by one decimal, round it, shift it back
-      jsonBuffer_data["id7"] = round(temperature_ch1*10)/10;
-      jsonBuffer_data["id8"] = Mode;
-      jsonBuffer_data["id9"] = ui_Segment_HoldReleaseRequest;
-      jsonBuffer_data["id10"] = ThermalRunawayDetected;
-      jsonBuffer_data["id11"] = Safety_Ok;
-      jsonBuffer_data["id12"] = HEARTBEAT_VALUE;
-
-      jsonBuffer["topic"] = "status";
-      jsonBuffer["data"] = jsonBuffer_data;
-      serializeJson(jsonBuffer,databuf);
-      webSocket.broadcastTXT(databuf);
-/*
-      jsonBuffer["topic"] = "STS-UPPER_TEMP";
-      jsonBuffer["val"] = 123.0;//temperature_ch0;
-      serializeJson(jsonBuffer,databuf);
-      webSocket.broadcastTXT(databuf);
-
-      jsonBuffer["topic"] = "STS-LOWER_TEMP";
-      jsonBuffer["val"] = 321.0;//temperature_ch1;
-      serializeJson(jsonBuffer,databuf);
-      webSocket.broadcastTXT(databuf);
-*/
     }
   }
+
+  //
+  // handle websocket stuffs
+  //
   webSocket.loop();
   
   //
