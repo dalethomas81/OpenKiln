@@ -247,8 +247,8 @@
   var Socket;
   function init() 
   {
-    //Socket = new WebSocket('ws://' + window.location.hostname + ':81/');
-    Socket = new WebSocket('ws://'+document.location.host+'/ws',['arduino']);
+    Socket = new WebSocket('ws://' + window.location.hostname + ':81/');
+    //Socket = new WebSocket('ws://'+document.location.host+'/ws',['arduino']);
     Socket.onmessage = function(event) { processReceivedCommand(event); };
   }
   

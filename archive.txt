@@ -959,6 +959,10 @@ void handleModbus() {
   mb_rtu.Coil(MB_CMD_WRITE_EEPROM, ui_WriteEeprom);
   mb_rtu.Coil(MB_SCH_SEG_ENABLED, Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Enabled);
   mb_rtu.Coil(MB_SCH_SEG_HOLD_EN, Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].HoldEnabled);
+  mb_rtu.Coil(MB_CMD_CAL_CH0_LOW, t_ch0_cal_low);
+  mb_rtu.Coil(MB_CMD_CAL_CH1_LOW, t_ch1_cal_low);
+  mb_rtu.Coil(MB_CMD_CAL_CH0_HIGH, t_ch0_cal_high);
+  mb_rtu.Coil(MB_CMD_CAL_CH1_HIGH, t_ch1_cal_high);
   /* input status (R) */
   mb_rtu.Ists(MB_STS_RELEASE_REQ, ui_Segment_HoldReleaseRequest);
   mb_rtu.Ists(MB_STS_SSR_01, ui_StsSSRPin_01);
@@ -977,6 +981,8 @@ void handleModbus() {
   DoubleToHreg(MB_PID_P_02, Kp_02);
   DoubleToHreg(MB_PID_I_02, Ki_02);
   DoubleToHreg(MB_PID_D_02, Kd_02);
+  DoubleToHreg(MB_CAL_TEMP_ACT_CH0, t_ch0_actual);
+  DoubleToHreg(MB_CAL_TEMP_ACT_CH1, t_ch1_actual);
   int y = 0;
   for (int i=0; i<sizeof(Schedules[ui_ChangeSelectedSchedule].Name);i=i+2) {
     charAsUnit16 temp;
@@ -1042,7 +1048,9 @@ void handleModbus() {
     mb_rtu.Ireg(MB_STS_SCHEDULE_NAME + k, temp.reg);
     k++;
   }
-  
+  DoubleToIreg(MB_STS_TEMP_01_RAW, t_ch0_raw);
+  DoubleToIreg(MB_STS_TEMP_02_RAW, t_ch1_raw);
+
   mb_rtu.task();
   mb_ip.task();
   
@@ -1055,6 +1063,10 @@ void handleModbus() {
   ui_WriteEeprom = mb_rtu.Coil(MB_CMD_WRITE_EEPROM);
   Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].Enabled = mb_rtu.Coil(MB_SCH_SEG_ENABLED);
   Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].HoldEnabled = mb_rtu.Coil(MB_SCH_SEG_HOLD_EN);
+  t_ch0_cal_low = mb_rtu.Coil(MB_CMD_CAL_CH0_LOW);
+  t_ch1_cal_low = mb_rtu.Coil(MB_CMD_CAL_CH1_LOW);
+  t_ch0_cal_high = mb_rtu.Coil(MB_CMD_CAL_CH0_HIGH);
+  t_ch1_cal_high = mb_rtu.Coil(MB_CMD_CAL_CH1_HIGH);
   /* holding registers (RW) */
   Mode = mb_rtu.Hreg(MB_MODE);
   ui_SelectedSchedule = mb_rtu.Hreg(MB_CMD_SELECTED_SCHEDULE);
@@ -1095,6 +1107,8 @@ void handleModbus() {
   Schedules[ui_ChangeSelectedSchedule].Segments[ui_ChangeSelectedSegment].SoakTime = mb_rtu.Hreg(MB_SCH_SEG_SOAK_TIME);
   ui_ChangeSelectedSegment = mb_rtu.Hreg(MB_SCH_SEG_SELECTED);
   ui_ChangeSelectedSchedule = mb_rtu.Hreg(MB_SCH_SELECTED);
+  t_ch0_actual = HregToDouble(MB_CAL_TEMP_ACT_CH0);
+  t_ch1_actual = HregToDouble(MB_CAL_TEMP_ACT_CH1);
 
   /*************** should create a new routine for things below this line ****************/
   // do not let user change modes while running
