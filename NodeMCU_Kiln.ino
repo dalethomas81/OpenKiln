@@ -32,7 +32,7 @@ bool ThermalRunawayDetected = false, ui_ThermalRunawayOverride = false;
 #define WIFI_LISTENING_PORT       80
 #include <WebSocketsServer.h>  // Websockets by Markus Sattler https://github.com/Links2004/arduinoWebSockets
 WebSocketsServer webSocket = WebSocketsServer(WIFI_LISTENING_PORT+1);
-#include <ESPAsyncTCP.h>
+//#include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 AsyncWebServer server(WIFI_LISTENING_PORT);
 
