@@ -14,7 +14,7 @@
 
 // NOTE: ****** kiln was flashed with ESP Board version 2.7.2
 
-/* defines */
+/* global defines */
 #define WIFI_LISTENING_PORT       80
 #define SERIAL_BAUD_RATE          115200
 #define HEARTBEAT_TIME            1000
@@ -24,7 +24,7 @@
 #define SIMULATION_MODE           3
 #define NUMER_OF_MODES            3 // make this equal to the last mode to trap errors
 
-/* init variables */
+/* global variables */
 bool Safety_Ok = false;
 uint16_t Mode = AUTOMATIC_MODE,  Mode_Last = AUTOMATIC_MODE;
 bool ThermalRunawayDetected = false, ui_ThermalRunawayOverride = false;
