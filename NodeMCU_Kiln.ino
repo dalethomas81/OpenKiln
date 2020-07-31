@@ -24,17 +24,23 @@
 #define SIMULATION_MODE           3
 #define NUMER_OF_MODES            3 // make this equal to the last mode to trap errors
 
+//#define USE_WEB_SERVER          // enabling this will disable modbustcp
+
 /* global variables */
 bool Safety_Ok = false;
 uint16_t Mode = AUTOMATIC_MODE,  Mode_Last = AUTOMATIC_MODE;
 bool ThermalRunawayDetected = false, ui_ThermalRunawayOverride = false;
 
-/* web server */
-//#include <ESPAsyncTCP.h>
-#include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
-AsyncWebServer server(WIFI_LISTENING_PORT);
-#include <WebSocketsServer.h>  // Websockets by Markus Sattler https://github.com/Links2004/arduinoWebSockets
-WebSocketsServer webSocket = WebSocketsServer(WIFI_LISTENING_PORT+1);
+#ifdef USE_WEB_SERVER
+  /* web server */
+  //#include <ESPAsyncTCP.h>
+  #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
+  AsyncWebServer server(WIFI_LISTENING_PORT);
+  #include <WebSocketsServer.h>  // Websockets by Markus Sattler https://github.com/Links2004/arduinoWebSockets
+  WebSocketsServer webSocket = WebSocketsServer(WIFI_LISTENING_PORT+1);
+#else
+  #include <ESP8266WiFi.h> // will need this for wifi
+#endif
 
 /* wifi */
 //#include <ESP8266WiFi.h>
@@ -849,7 +855,11 @@ void handleMainContactor() {
 
 /* modbus */
 #include <ModbusRTU.h> // https://github.com/emelianov/modbus-esp8266
-//#include <ModbusIP_ESP8266.h>
+#ifdef USE_WEB_SERVER
+  // dont include modbus tcp
+#else
+  #include <ModbusIP_ESP8266.h>
+#endif
 #define SLAVE_ID                  1
 /* coils (RW) */
 #define MB_CMD_SELECT_SCHEDULE    1
@@ -908,7 +918,11 @@ void handleMainContactor() {
 #define MB_STS_TEMP_01_RAW        32
 #define MB_STS_TEMP_02_RAW        34
 ModbusRTU mb_rtu;
-//ModbusIP mb_ip;
+#ifdef USE_WEB_SERVER
+  // dont include modbus tcp
+#else
+  ModbusIP mb_ip;
+#endif
 int HEARTBEAT_VALUE = 0;
 bool ui_EepromWritten = false;
 unsigned long EepromWritten_Timer = millis();
@@ -1052,7 +1066,11 @@ void handleModbus() {
   DoubleToIreg(MB_STS_TEMP_02_RAW, t_ch1_raw);
 
   mb_rtu.task();
-  //mb_ip.task();
+#ifdef USE_WEB_SERVER
+  // dont include modbus tcp
+#else
+  mb_ip.task();
+#endif
   
   /* coils (RW) */
   ui_SelectSchedule = mb_rtu.Coil(MB_CMD_SELECT_SCHEDULE);
@@ -1135,7 +1153,11 @@ void handleModbus() {
 }
 void setupModbus() {
   //Serial.begin(SERIAL_BAUD_RATE, SERIAL_8N1);
-  //mb_ip.server();   //Start Modbus IP
+#ifdef USE_WEB_SERVER
+  // dont include modbus tcp
+#else
+  mb_ip.server();   //Start Modbus IP
+#endif
   mb_rtu.begin(&Serial);
   mb_rtu.slave(SLAVE_ID);
   /* coils (RW) */
@@ -1511,6 +1533,7 @@ void applyDefaultSettings() {
   writeSettingsToEeeprom();
 }
 
+#ifdef USE_WEB_SERVER
 /* websockets */
 #include <ArduinoJson.h>
 #include <StreamString.h>
@@ -1729,6 +1752,7 @@ void broadcastUpdates() {
   serializeJson(jsonBuffer,databuf);
   webSocket.broadcastTXT(databuf);
 }
+#endif
 
 /* setup */
 unsigned long timer_heartbeat;
@@ -1780,10 +1804,12 @@ void setup() {
   //
   connectWifi(5000);
   
+#ifdef USE_WEB_SERVER
   //
   // webSocket
   //
   setupWebsocket();
+#endif
 
   //
   // setup OTA
@@ -1826,7 +1852,9 @@ void loop() {
   //
   if (millis() - timer_heartbeat > HEARTBEAT_TIME ){
     timer_heartbeat = millis();
+#ifdef USE_WEB_SERVER
     broadcastUpdates(); // send out websockets updates
+#endif
     if (HEARTBEAT_VALUE>=100) {
       HEARTBEAT_VALUE = -100;
     } else {
@@ -1835,17 +1863,18 @@ void loop() {
     if (HeartbeatOn) {
       HeartbeatOn = false;
       //Serial.println("Heartbeat Off");
-      //webSocket.broadcastTXT("0");
     } else {
       HeartbeatOn = true;
       //Serial.println("Heartbeat On");
     }
   }
 
+#ifdef USE_WEB_SERVER
   //
   // handle websocket stuffs
   //
   webSocket.loop();
+#endif
   
   //
   // handle OTA requests
