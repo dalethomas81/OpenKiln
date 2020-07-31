@@ -371,10 +371,10 @@
     document.getElementById('START_BUTTON').addEventListener('click', startButtonClicked);
     function startButtonClicked()
     {   
-      var btn = document.getElementById('START_BUTTON')
+      var btn = document.getElementById('START_BUTTON');
       var btnText = btn.textContent || btn.innerText;
       //document.getElementById('KILN_status').innerHTML = 'Kiln has been started';
-      sendText('{"topic":"CMD-START_PROFILE","val":"true"');
+      sendText('{"topic":"CMD-START_PROFILE","val":"true"}');
       // if (btnText ==='Turn on the Kiln') { btn.innerHTML = 'Turn off the Kiln'; document.getElementById('KILN_status').innerHTML = 'Kiln is on';  sendText('1'); }  
       // else                              { btn.innerHTML = 'Turn on the Kiln';  document.getElementById('KILN_status').innerHTML = 'Kiln is off'; sendText('0'); }
     }
@@ -382,31 +382,31 @@
     document.getElementById('STOP_BUTTON').addEventListener('click', stopButtonClicked);
     function stopButtonClicked()
     {   
-      sendText('{"topic":"CMD-STOP_PROFILE","val":"true"');
+      sendText('{"topic":"CMD-STOP_PROFILE","val":"true"}');
     }
 
     document.getElementById('MODE_BUTTON').addEventListener('click', modeButtonClicked);
     function modeButtonClicked()
     {   
-      sendText('{"topic":"CMD-CHANGE_MODE","val":"true"');
+      sendText('{"topic":"CMD-CHANGE_MODE","val":"true"}');
     }
 
     document.getElementById('HOLD_BUTTON').addEventListener('click', holdButtonClicked);
     function holdButtonClicked()
     {   
-      sendText('{"topic":"CMD-RELEASE_HOLD","val":"true"');
+      sendText('{"topic":"CMD-RELEASE_HOLD","val":"true"}');
     }
 
     document.getElementById('NEXT_BUTTON').addEventListener('click', nextButtonClicked);
     function nextButtonClicked()
     {   
-      sendText('{"topic":"CMD-NEXT_SCHEDULE","val":"true"');
+      sendText('{"topic":"CMD-NEXT_SCHEDULE","val":"true"}');
     }
 
     document.getElementById('PREV_BUTTON').addEventListener('click', prevButtonClicked);
     function prevButtonClicked()
     {   
-      sendText('{"topic":"CMD-PREV_SCHEDULE","val":"true"');
+      sendText('{"topic":"CMD-PREV_SCHEDULE","val":"true"}');
     }
   
     function sendText(data)
