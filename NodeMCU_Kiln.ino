@@ -270,14 +270,17 @@ double t_ch0_fromLow = 1.0, t_ch0_fromHigh = 3000.0, t_ch0_toLow = 1.0, t_ch0_to
 double t_ch1_fromLow = 1.0, t_ch1_fromHigh = 3000.0, t_ch1_toLow = 1.0, t_ch1_toHigh = 3000.0;
 #define TEMPERATURE_SAMPLE_RATE 1000
 unsigned long SampleTemperature_Timer = millis();
+int NumberOfSamples_ch0 = 0, NumberOfSamples_ch1 = 0; // will need this because array is full of zeros on boot
 void handleTemperature() {
   t_ch0_raw = thermocouple_ch0.readFahrenheit();
   t_ch1_raw = thermocouple_ch1.readFahrenheit();
   if (millis()-SampleTemperature_Timer > TEMPERATURE_SAMPLE_RATE) {
+    SampleTemperature_Timer = millis();
     double t_ch0 = map(t_ch0_raw,t_ch0_fromLow,t_ch0_fromHigh,t_ch0_toLow,t_ch0_toHigh); //map(value,fromlow,fromhigh,tolow,tohigh);
-    if (isnan(t_ch0) || t_ch0 < -32.0 || t_ch0 > 5000.0) {
+    if (isnan(t_ch0) || t_ch0 < -32.0 || t_ch0 > 3500.0) {
       //temperature_ch0 = 0.0;
     } else {
+      if (NumberOfSamples_ch0 < TEMP_AVG_ARR_SIZE) NumberOfSamples_ch0++;
       /* smoothing */
       // subtract the last reading:
       t_ch0Tot = t_ch0Tot - t_ch0Readings[idx_ch0Readings];
@@ -293,12 +296,13 @@ void handleTemperature() {
         idx_ch0Readings = 0;
       }
       // calculate the average:
-      temperature_ch0 = t_ch0Tot / TEMP_AVG_ARR_SIZE;
+      temperature_ch0 = t_ch0Tot / NumberOfSamples_ch0;
     }
     double t_ch1 = map(t_ch1_raw,t_ch1_fromLow,t_ch1_fromHigh,t_ch1_toLow,t_ch1_toHigh);
-    if (isnan(t_ch1) || t_ch1 < -32.0 || t_ch1 > 5000.0) {
+    if (isnan(t_ch1) || t_ch1 < -32.0 || t_ch1 > 3500.0) {
       //temperature_ch1 = 0.0;
     } else {
+      if (NumberOfSamples_ch1 < TEMP_AVG_ARR_SIZE) NumberOfSamples_ch1++;
       /* smoothing */
       // subtract the last reading:
       t_ch1Tot = t_ch1Tot - t_ch1Readings[idx_ch1Readings];
@@ -314,7 +318,7 @@ void handleTemperature() {
         idx_ch1Readings = 0;
       }
       // calculate the average:
-      temperature_ch1 = t_ch1Tot / TEMP_AVG_ARR_SIZE;
+      temperature_ch1 = t_ch1Tot / NumberOfSamples_ch1;
     }
   }
   if (Mode == SIMULATION_MODE) {
