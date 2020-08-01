@@ -377,7 +377,7 @@ void handleCal() {
 #define NUMBER_OF_SCHEDULES   5
 #define NUMBER_OF_SEGMENTS    10
 #define RATE_TIMER_PERIOD     1000
-#define RAMP_TIMER_PERIOD     1000
+#define RAMP_TIMER_PERIOD     60000 //1000
 #define MAX_STRING_LENGTH     16 // space is wasted when this is an odd number because a modbus register is 2 bytes and fits 2 characters
 uint16_t SOAK_TIMER_PERIOD = 0;
 unsigned long RampTimer, SoakTimer, RateTimer;
@@ -608,13 +608,15 @@ void handleProfileSequence(){
   if (RateTimer_ElapsedTime > RATE_TIMER_PERIOD) {
     RateTimer = millis();
     /* calculate rate ch0 */
-    double MeasuredRatePerSecond_ch0 = fabs(temperature_ch0 - temperatureLast_ch0)*((double)RateTimer_ElapsedTime/1000.0); // use fabs for floats/double instead of abs
-    double MeasuredRatePerMinute_ch0 = MeasuredRatePerSecond_ch0*60.0;
+    //double MeasuredRatePerSecond_ch0 = fabs(temperature_ch0 - temperatureLast_ch0)*((double)RateTimer_ElapsedTime/1000.0); // use fabs for floats/double instead of abs
+    //double MeasuredRatePerMinute_ch0 = MeasuredRatePerSecond_ch0*60.0;
+    double MeasuredRatePerMinute_ch0 = fabs(temperature_ch0 - temperatureLast_ch0)*60.0*((double)RateTimer_ElapsedTime/RATE_TIMER_PERIOD); // use fabs for floats/double instead of abs
     MeasuredRatePerHour_ch0 = MeasuredRatePerMinute_ch0*60.0;
     temperatureLast_ch0 = temperature_ch0;
     /* calculate rate ch1 */
-    double MeasuredRatePerSecond_ch1 = fabs(temperature_ch1 - temperatureLast_ch1)*((double)RateTimer_ElapsedTime/1000.0);
-    double MeasuredRatePerMinute_ch1 = MeasuredRatePerSecond_ch1*60.0;
+    //double MeasuredRatePerSecond_ch1 = fabs(temperature_ch1 - temperatureLast_ch1)*((double)RateTimer_ElapsedTime/1000.0);
+    //double MeasuredRatePerMinute_ch1 = MeasuredRatePerSecond_ch1*60.0;
+    double MeasuredRatePerMinute_ch1 = fabs(temperature_ch1 - temperatureLast_ch1)*60.0*((double)RateTimer_ElapsedTime/RATE_TIMER_PERIOD);
     MeasuredRatePerHour_ch1 = MeasuredRatePerMinute_ch1*60.0;
     temperatureLast_ch1 = temperature_ch1;
   }
