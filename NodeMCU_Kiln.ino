@@ -767,6 +767,8 @@ bool RateDifferenceDetected = false;
 double Tolerance_Rate = 100.0, Tolerance_Temperature = 200.0;
 unsigned long ThermalRunawayTemperature_Timer = millis();
 unsigned long ThermalRunawayRate_Timer = millis();
+unsigned long ThermalRunawayTemperatureTimer_Elapsed = 0;
+unsigned long ThermalRunawayRateTimer_Elapsed = 0;
 int SafetyInputLast = 0;
 void handleThermalRunaway() {
 
@@ -803,7 +805,7 @@ void handleThermalRunaway() {
       break;
   }
   // check temperature difference
-  unsigned int ThermalRunawayTemperatureTimer_Elapsed = millis() - ThermalRunawayTemperature_Timer;
+  ThermalRunawayTemperatureTimer_Elapsed = millis() - ThermalRunawayTemperature_Timer;
   if (ThermalRunawayTemperatureTimer_Elapsed > THERMAL_RUNAWAY_TEMPERATURE_TIMER || !TemperatureDifferenceDetected) {
     if (TemperatureDifferenceDetected) {
       ThermalRunawayDetected = true;
@@ -813,7 +815,7 @@ void handleThermalRunaway() {
   }
   TemperatureDifferenceDetected = false;
   // check rate difference
-  unsigned int ThermalRunawayRateTimer_Elapsed = millis() - ThermalRunawayRate_Timer;
+  ThermalRunawayRateTimer_Elapsed = millis() - ThermalRunawayRate_Timer;
   if (ThermalRunawayRateTimer_Elapsed > THERMAL_RUNAWAY_RATE_TIMER || !RateDifferenceDetected) {
     if (RateDifferenceDetected) {
       ThermalRunawayDetected = true;
@@ -1056,8 +1058,8 @@ void handleModbus() {
   }
   DoubleToIreg(MB_STS_TEMP_01_RAW, t_ch0_raw);
   DoubleToIreg(MB_STS_TEMP_02_RAW, t_ch1_raw);
-  DoubleToIreg(MB_STS_RUNAWAY_TEMP_T, ThermalRunawayTemperature_Timer);
-  DoubleToIreg(MB_STS_RUNAWAY_RATE_T, ThermalRunawayRate_Timer);
+  DoubleToIreg(MB_STS_RUNAWAY_TEMP_T, ThermalRunawayTemperatureTimer_Elapsed);
+  DoubleToIreg(MB_STS_RUNAWAY_RATE_T, ThermalRunawayRateTimer_Elapsed);
 
   mb_rtu.task();
 #ifdef USE_WEB_SERVER
