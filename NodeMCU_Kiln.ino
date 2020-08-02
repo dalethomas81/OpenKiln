@@ -260,6 +260,8 @@ void setupPID() {
 Adafruit_MAX31855 thermocouple_ch0(MAXCS_CH0);
 Adafruit_MAX31855 thermocouple_ch1(MAXCS_CH1);
 #define TEMP_AVG_ARR_SIZE 100
+#define MAX_ALLOWED_TEMPERATURE 3500.0
+#define MIN_ALLOWED_TEMPERATURE -32.0
 int idx_ch0Readings = 0, idx_ch1Readings;
 double t_ch0Readings[TEMP_AVG_ARR_SIZE] = {0.0};
 double t_ch1Readings[TEMP_AVG_ARR_SIZE] = {0.0};
@@ -277,47 +279,29 @@ void handleTemperature() {
   if (millis()-SampleTemperature_Timer > TEMPERATURE_SAMPLE_RATE) {
     SampleTemperature_Timer = millis();
     double t_ch0 = map(t_ch0_raw,t_ch0_fromLow,t_ch0_fromHigh,t_ch0_toLow,t_ch0_toHigh); //map(value,fromlow,fromhigh,tolow,tohigh);
-    if (isnan(t_ch0) || t_ch0 < -32.0 || t_ch0 > 3500.0) {
-      //temperature_ch0 = 0.0;
+    if (isnan(t_ch0) || t_ch0 < MIN_ALLOWED_TEMPERATURE || t_ch0 > MAX_ALLOWED_TEMPERATURE) {
+      temperature_ch0 = MAX_ALLOWED_TEMPERATURE; // fail high
     } else {
       if (NumberOfSamples_ch0 < TEMP_AVG_ARR_SIZE) NumberOfSamples_ch0++;
       /* smoothing */
-      // subtract the last reading:
       t_ch0Tot = t_ch0Tot - t_ch0Readings[idx_ch0Readings];
-      // read from the sensor:
       t_ch0Readings[idx_ch0Readings] = t_ch0;
-      // add the reading to the total:
       t_ch0Tot = t_ch0Tot + t_ch0Readings[idx_ch0Readings];
-      // advance to the next position in the array:
       idx_ch0Readings++;
-      // if we're at the end of the array...
-      if (idx_ch0Readings >= TEMP_AVG_ARR_SIZE) {
-        // ...wrap around to the beginning:
-        idx_ch0Readings = 0;
-      }
-      // calculate the average:
+      if (idx_ch0Readings >= TEMP_AVG_ARR_SIZE) idx_ch0Readings = 0;
       temperature_ch0 = t_ch0Tot / NumberOfSamples_ch0;
     }
     double t_ch1 = map(t_ch1_raw,t_ch1_fromLow,t_ch1_fromHigh,t_ch1_toLow,t_ch1_toHigh);
-    if (isnan(t_ch1) || t_ch1 < -32.0 || t_ch1 > 3500.0) {
-      //temperature_ch1 = 0.0;
+    if (isnan(t_ch1) || t_ch1 < MIN_ALLOWED_TEMPERATURE || t_ch1 > MAX_ALLOWED_TEMPERATURE) {
+      temperature_ch1 = MAX_ALLOWED_TEMPERATURE; // fail high
     } else {
       if (NumberOfSamples_ch1 < TEMP_AVG_ARR_SIZE) NumberOfSamples_ch1++;
       /* smoothing */
-      // subtract the last reading:
       t_ch1Tot = t_ch1Tot - t_ch1Readings[idx_ch1Readings];
-      // read from the sensor:
       t_ch1Readings[idx_ch1Readings] = t_ch1;
-      // add the reading to the total:
       t_ch1Tot = t_ch1Tot + t_ch1Readings[idx_ch1Readings];
-      // advance to the next position in the array:
       idx_ch1Readings++;
-      // if we're at the end of the array...
-      if (idx_ch1Readings >= TEMP_AVG_ARR_SIZE) {
-        // ...wrap around to the beginning:
-        idx_ch1Readings = 0;
-      }
-      // calculate the average:
+      if (idx_ch1Readings >= TEMP_AVG_ARR_SIZE) idx_ch1Readings = 0;
       temperature_ch1 = t_ch1Tot / NumberOfSamples_ch1;
     }
   }
@@ -776,13 +760,13 @@ void setSchedule () {
 }
 
 /* safety */
-#define THERMAL_RUNAWAY_TEMPERATURE_TIMER 120000 // 120000 is 2 min
+#define THERMAL_RUNAWAY_TEMPERATURE_TIMER 600000 // 600000 is 10 min
 #define THERMAL_RUNAWAY_RATE_TIMER 600000 // 600000 is 10 min
 bool TemperatureDifferenceDetected = false;
 bool RateDifferenceDetected = false;
 double Tolerance_Rate = 100.0, Tolerance_Temperature = 200.0;
-unsigned int ThermalRunawayTemperature_Timer = millis();
-unsigned int ThermalRunawayRate_Timer = millis();
+unsigned long ThermalRunawayTemperature_Timer = millis();
+unsigned long ThermalRunawayRate_Timer = millis();
 int SafetyInputLast = 0;
 void handleThermalRunaway() {
 
@@ -923,6 +907,8 @@ void handleMainContactor() {
 #define MB_STS_SCHEDULE_NAME      24 // this is 8 regs long - next should start at 32
 #define MB_STS_TEMP_01_RAW        32
 #define MB_STS_TEMP_02_RAW        34
+#define MB_STS_RUNAWAY_TEMP_T     36
+#define MB_STS_RUNAWAY_RATE_T     38
 ModbusRTU mb_rtu;
 #ifdef USE_WEB_SERVER
   // dont include modbus tcp
@@ -1070,6 +1056,8 @@ void handleModbus() {
   }
   DoubleToIreg(MB_STS_TEMP_01_RAW, t_ch0_raw);
   DoubleToIreg(MB_STS_TEMP_02_RAW, t_ch1_raw);
+  DoubleToIreg(MB_STS_RUNAWAY_TEMP_T, ThermalRunawayTemperature_Timer);
+  DoubleToIreg(MB_STS_RUNAWAY_RATE_T, ThermalRunawayRate_Timer);
 
   mb_rtu.task();
 #ifdef USE_WEB_SERVER
@@ -1222,6 +1210,8 @@ void setupModbus() {
   mb_rtu.addIreg(MB_STS_SCHEDULE_NAME,0,8);
   mb_rtu.addIreg(MB_STS_TEMP_01_RAW,0,2);
   mb_rtu.addIreg(MB_STS_TEMP_02_RAW,0,2);
+  mb_rtu.addIreg(MB_STS_RUNAWAY_TEMP_T,0,2);
+  mb_rtu.addIreg(MB_STS_RUNAWAY_RATE_T,0,2);
   
   //mb_rtu.onGetCoil(COIL_BASE, cbRead, LEN); // Add callback on Coils value get
   //mb_rtu.onSetCoil(MB_CMD_SELECT_SCHEDULE, cbSchedule);      // Add callback on Coil LED_COIL value set
@@ -1862,7 +1852,7 @@ void loop() {
     broadcastUpdates(); // send out websockets updates
 #endif
     if (HEARTBEAT_VALUE>=100) {
-      HEARTBEAT_VALUE = -100;
+      HEARTBEAT_VALUE = 0;
     } else {
       HEARTBEAT_VALUE = HEARTBEAT_VALUE + 1;
     }
