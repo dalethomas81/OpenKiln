@@ -183,6 +183,7 @@ void setupPins() {
 
 /* pid */
 #include <PID_v1.h>
+#define PID_RELAY_DUTY_CYCLE_PERIOD 1000
 double Setpoint_ch0, Setpoint_ch1, Input_01, Input_02, Output_01, Output_02;
 double temperature_ch0, temperature_ch1;
 bool ui_StsSSRPin_01, ui_StsSSRPin_02;
@@ -190,7 +191,6 @@ double Kp_01=5.0, Ki_01=0.001, Kd_01=0.0;
 double Kp_02=5.0, Ki_02=0.001, Kd_02=0.0;
 PID PID_01(&Input_01, &Output_01, &Setpoint_ch0, Kp_01, Ki_01, Kd_01, DIRECT); // REVERSE - PROCESS lowers as OUTPUT rises
 PID PID_02(&Input_02, &Output_02, &Setpoint_ch1, Kp_02, Ki_02, Kd_02, DIRECT); 
-int WindowSize = 1000;
 unsigned long windowStartTime_01, windowStartTime_02;
 void handlePID() {
   //Input = analogRead(ANALOG_PIN); // this is causing wifi issues?? wtf?? // esp uses A0 to read input voltage and adjust power - maybe thats the problem?
@@ -204,9 +204,9 @@ void handlePID() {
    * turn the output pin on/off based on pid output
    ************************************************/
    // TODO: enable manual mode to set the pulse width
-  if (millis() - windowStartTime_01 > WindowSize)
+  if (millis() - windowStartTime_01 > PID_RELAY_DUTY_CYCLE_PERIOD)
   { //time to shift the Relay Window
-    windowStartTime_01 += WindowSize;
+    windowStartTime_01 += PID_RELAY_DUTY_CYCLE_PERIOD;
   }
   if (Output_01 < millis() - windowStartTime_01) {
     digitalWrite(SSR_PIN_01, HIGH);
@@ -218,9 +218,9 @@ void handlePID() {
       }
   }
   
-  if (millis() - windowStartTime_02 > WindowSize)
+  if (millis() - windowStartTime_02 > PID_RELAY_DUTY_CYCLE_PERIOD)
   { //time to shift the Relay Window
-    windowStartTime_02 += WindowSize;
+    windowStartTime_02 += PID_RELAY_DUTY_CYCLE_PERIOD;
   }
   if (Output_02 < millis() - windowStartTime_02) {
     digitalWrite(SSR_PIN_02, HIGH);
@@ -245,8 +245,8 @@ void setupPID() {
   Setpoint_ch0 = 0.0;
   Setpoint_ch1 = 0.0;
   //tell the PID to range between 0 and the full window size
-  PID_01.SetOutputLimits(0, WindowSize);
-  PID_02.SetOutputLimits(0, WindowSize);
+  PID_01.SetOutputLimits(0, PID_RELAY_DUTY_CYCLE_PERIOD);
+  PID_02.SetOutputLimits(0, PID_RELAY_DUTY_CYCLE_PERIOD);
   //turn the PID on
   PID_01.SetMode(AUTOMATIC);
   PID_02.SetMode(AUTOMATIC);
@@ -255,13 +255,14 @@ void setupPID() {
 /* temperature */
 #include <SPI.h>
 #include "Adafruit_MAX31855.h"
+#define TEMP_AVG_ARR_SIZE 100
+#define MAX_ALLOWED_TEMPERATURE 3500.0
+#define MIN_ALLOWED_TEMPERATURE -32.0
+#define TEMPERATURE_SAMPLE_RATE 1000
 #define MAXCS_CH0   D8 // D8 is GPIO15 SPI (CS) on NodeMCU
 #define MAXCS_CH1   D7 // D3 is GPIO0 connected to FLASH button on NodeMCU
 Adafruit_MAX31855 thermocouple_ch0(MAXCS_CH0);
 Adafruit_MAX31855 thermocouple_ch1(MAXCS_CH1);
-#define TEMP_AVG_ARR_SIZE 100
-#define MAX_ALLOWED_TEMPERATURE 3500.0
-#define MIN_ALLOWED_TEMPERATURE -32.0
 int idx_ch0Readings = 0, idx_ch1Readings;
 double t_ch0Readings[TEMP_AVG_ARR_SIZE] = {0.0};
 double t_ch1Readings[TEMP_AVG_ARR_SIZE] = {0.0};
@@ -270,7 +271,6 @@ double temperatureLast_ch0 = 0.0, temperatureLast_ch1 = 0.0;
 double t_ch0Tot = 0.0, t_ch1Tot = 0.0;
 double t_ch0_fromLow = 1.0, t_ch0_fromHigh = 3000.0, t_ch0_toLow = 1.0, t_ch0_toHigh = 3000.0;
 double t_ch1_fromLow = 1.0, t_ch1_fromHigh = 3000.0, t_ch1_toLow = 1.0, t_ch1_toHigh = 3000.0;
-#define TEMPERATURE_SAMPLE_RATE 1000
 unsigned long SampleTemperature_Timer = millis();
 int NumberOfSamples_ch0 = 0, NumberOfSamples_ch1 = 0; // will need this because array is full of zeros on boot
 void handleTemperature() {
@@ -615,6 +615,8 @@ void handleProfileSequence(){
       dbl_minutes = 0.0;
       dbl_seconds = 0.0;
       dbl_milli = 0.0;
+      MeasuredRatePerHour_ch0 = 0.0;
+      MeasuredRatePerHour_ch1 = 0.0;
       break;
     case SEGMENT_STATE_RAMP:
       // calculate time remaining ch0
@@ -760,17 +762,21 @@ void setSchedule () {
 }
 
 /* safety */
-#define THERMAL_RUNAWAY_TEMPERATURE_TIMER 600000 // 600000 is 10 min
-#define THERMAL_RUNAWAY_RATE_TIMER 600000 // 600000 is 10 min
+#define THERMAL_RUNAWAY_TEMPERATURE_TIMER       600000 // 600000 is 10 min
+#define THERMAL_RUNAWAY_RATE_TIMER              900000 // should not be set less that the sample period of the rate (RATE_TIMER_PERIOD)
+#define THERMAL_RUNAWAY_TOLERANCE_TEMPERATURE   0.03 // percentage
+#define THERMAL_RUNAWAY_TOLERANCE_RATE          0.30
 bool TemperatureDifferenceDetected = false;
 bool RateDifferenceDetected = false;
-double Tolerance_Rate = 100.0, Tolerance_Temperature = 200.0;
 unsigned long ThermalRunawayTemperature_Timer = millis();
 unsigned long ThermalRunawayRate_Timer = millis();
 unsigned long ThermalRunawayTemperatureTimer_Elapsed = 0;
 unsigned long ThermalRunawayRateTimer_Elapsed = 0;
 int SafetyInputLast = 0;
 void handleThermalRunaway() {
+
+  double RateTolerance = LoadedSchedule.Segments[SegmentIndex].RampRate*THERMAL_RUNAWAY_TOLERANCE_RATE;
+  double TempTolerance = LoadedSchedule.Segments[SegmentIndex].Setpoint*THERMAL_RUNAWAY_TOLERANCE_TEMPERATURE;
 
   switch (ProfileSequence) {
     case SEGMENT_STATE_IDLE:
@@ -781,25 +787,25 @@ void handleThermalRunaway() {
       break;
     case SEGMENT_STATE_RAMP:
       /* ch0 */
-      if ((MeasuredRatePerHour_ch0 > LoadedSchedule.Segments[SegmentIndex].RampRate + Tolerance_Rate) || 
-          (MeasuredRatePerHour_ch0 < LoadedSchedule.Segments[SegmentIndex].RampRate - Tolerance_Rate)) {
+      if ((MeasuredRatePerHour_ch0 > LoadedSchedule.Segments[SegmentIndex].RampRate + RateTolerance) || 
+          (MeasuredRatePerHour_ch0 < LoadedSchedule.Segments[SegmentIndex].RampRate - RateTolerance)) {
             RateDifferenceDetected = true;
           }
       /* ch1 */
-      if ((MeasuredRatePerHour_ch1 > LoadedSchedule.Segments[SegmentIndex].RampRate + Tolerance_Rate) || 
-          (MeasuredRatePerHour_ch1 < LoadedSchedule.Segments[SegmentIndex].RampRate - Tolerance_Rate)) {
+      if ((MeasuredRatePerHour_ch1 > LoadedSchedule.Segments[SegmentIndex].RampRate + RateTolerance) || 
+          (MeasuredRatePerHour_ch1 < LoadedSchedule.Segments[SegmentIndex].RampRate - RateTolerance)) {
             RateDifferenceDetected = true;
           }
       break;
     case SEGMENT_STATE_SOAK:
       /* ch0 */
-      if ((temperature_ch0 > LoadedSchedule.Segments[SegmentIndex].Setpoint + Tolerance_Temperature) || 
-          (temperature_ch0 < LoadedSchedule.Segments[SegmentIndex].Setpoint - Tolerance_Temperature)) {
+      if ((temperature_ch0 > LoadedSchedule.Segments[SegmentIndex].Setpoint + TempTolerance) || 
+          (temperature_ch0 < LoadedSchedule.Segments[SegmentIndex].Setpoint - TempTolerance)) {
             TemperatureDifferenceDetected = true;
           }
       /* ch1 */
-      if ((temperature_ch1 > LoadedSchedule.Segments[SegmentIndex].Setpoint + Tolerance_Temperature) || 
-          (temperature_ch1 < LoadedSchedule.Segments[SegmentIndex].Setpoint - Tolerance_Temperature)) {
+      if ((temperature_ch1 > LoadedSchedule.Segments[SegmentIndex].Setpoint + TempTolerance) || 
+          (temperature_ch1 < LoadedSchedule.Segments[SegmentIndex].Setpoint - TempTolerance)) {
             TemperatureDifferenceDetected = true;
           }
       break;
@@ -911,6 +917,8 @@ void handleMainContactor() {
 #define MB_STS_TEMP_02_RAW        34
 #define MB_STS_RUNAWAY_TEMP_T     36
 #define MB_STS_RUNAWAY_RATE_T     38
+#define MB_STS_MEAS_RATE_CH0      40
+#define MB_STS_MEAS_RATE_CH1      42
 ModbusRTU mb_rtu;
 #ifdef USE_WEB_SERVER
   // dont include modbus tcp
@@ -926,6 +934,10 @@ union floatAsBytes {
   uint16_t ui[2];
   byte bval[4];
 };
+union uintLongAsUint {
+  unsigned long uLongVal;
+  uint16_t ui[2];
+};
 union charAsUnit16 {
   uint16_t reg;
   char c[2];
@@ -935,6 +947,12 @@ void DoubleToIreg(uint16_t reg, double val) {
   flt.fval = val;
   mb_rtu.Ireg(reg, flt.ui[0]);
   mb_rtu.Ireg(reg+1, flt.ui[1]);
+}
+void UnsignedLongToIreg(uint16_t reg, unsigned long val) {
+  uintLongAsUint uLong; 
+  uLong.uLongVal = val;
+  mb_rtu.Ireg(reg, uLong.ui[0]);
+  mb_rtu.Ireg(reg+1, uLong.ui[1]);
 }
 void DoubleToHreg(uint16_t reg, double val) {
   floatAsBytes flt; 
@@ -1058,10 +1076,13 @@ void handleModbus() {
   }
   DoubleToIreg(MB_STS_TEMP_01_RAW, t_ch0_raw);
   DoubleToIreg(MB_STS_TEMP_02_RAW, t_ch1_raw);
-  DoubleToIreg(MB_STS_RUNAWAY_TEMP_T, ThermalRunawayTemperatureTimer_Elapsed);
-  DoubleToIreg(MB_STS_RUNAWAY_RATE_T, ThermalRunawayRateTimer_Elapsed);
+  UnsignedLongToIreg(MB_STS_RUNAWAY_TEMP_T, ThermalRunawayTemperatureTimer_Elapsed);
+  UnsignedLongToIreg(MB_STS_RUNAWAY_RATE_T, ThermalRunawayRateTimer_Elapsed);
+  DoubleToIreg(MB_STS_MEAS_RATE_CH0, MeasuredRatePerHour_ch0);
+  DoubleToIreg(MB_STS_MEAS_RATE_CH1, MeasuredRatePerHour_ch1);
 
   mb_rtu.task();
+
 #ifdef USE_WEB_SERVER
   // dont include modbus tcp
 #else
@@ -1214,6 +1235,8 @@ void setupModbus() {
   mb_rtu.addIreg(MB_STS_TEMP_02_RAW,0,2);
   mb_rtu.addIreg(MB_STS_RUNAWAY_TEMP_T,0,2);
   mb_rtu.addIreg(MB_STS_RUNAWAY_RATE_T,0,2);
+  mb_rtu.addIreg(MB_STS_MEAS_RATE_CH0,0,2);
+  mb_rtu.addIreg(MB_STS_MEAS_RATE_CH1,0,2);
   
   //mb_rtu.onGetCoil(COIL_BASE, cbRead, LEN); // Add callback on Coils value get
   //mb_rtu.onSetCoil(MB_CMD_SELECT_SCHEDULE, cbSchedule);      // Add callback on Coil LED_COIL value set
