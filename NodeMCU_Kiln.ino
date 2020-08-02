@@ -763,7 +763,7 @@ void setSchedule () {
 
 /* safety */
 #define THERMAL_RUNAWAY_TEMPERATURE_TIMER       600000 // 600000 is 10 min
-#define THERMAL_RUNAWAY_RATE_TIMER              900000 // should not be set less that the sample period of the rate (RATE_TIMER_PERIOD)
+#define THERMAL_RUNAWAY_RATE_TIMER              600000 // should not be set less that the sample period of the rate (RATE_TIMER_PERIOD)
 #define THERMAL_RUNAWAY_TOLERANCE_TEMPERATURE   0.03 // percentage
 #define THERMAL_RUNAWAY_TOLERANCE_RATE          0.30
 bool TemperatureDifferenceDetected = false;
