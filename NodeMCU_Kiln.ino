@@ -280,7 +280,7 @@ void handleTemperature() {
     SampleTemperature_Timer = millis();
     double t_ch0 = map(t_ch0_raw,t_ch0_fromLow,t_ch0_fromHigh,t_ch0_toLow,t_ch0_toHigh); //map(value,fromlow,fromhigh,tolow,tohigh);
     if (isnan(t_ch0) || t_ch0 < MIN_ALLOWED_TEMPERATURE || t_ch0 > MAX_ALLOWED_TEMPERATURE) {
-      temperature_ch0 = MAX_ALLOWED_TEMPERATURE; // fail high
+      //temperature_ch0 = MAX_ALLOWED_TEMPERATURE; // fail high - nevermind, if it fails high briefly and comes back down the segment thinks its reached its setpoint. god dammit.
     } else {
       if (NumberOfSamples_ch0 < TEMP_AVG_ARR_SIZE) NumberOfSamples_ch0++;
       /* smoothing */
@@ -293,7 +293,7 @@ void handleTemperature() {
     }
     double t_ch1 = map(t_ch1_raw,t_ch1_fromLow,t_ch1_fromHigh,t_ch1_toLow,t_ch1_toHigh);
     if (isnan(t_ch1) || t_ch1 < MIN_ALLOWED_TEMPERATURE || t_ch1 > MAX_ALLOWED_TEMPERATURE) {
-      temperature_ch1 = MAX_ALLOWED_TEMPERATURE; // fail high
+      //temperature_ch1 = MAX_ALLOWED_TEMPERATURE; // fail high
     } else {
       if (NumberOfSamples_ch1 < TEMP_AVG_ARR_SIZE) NumberOfSamples_ch1++;
       /* smoothing */
