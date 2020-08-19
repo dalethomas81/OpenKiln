@@ -18,57 +18,66 @@
 #define WIFI_LISTENING_PORT       80
 #define SERIAL_BAUD_RATE          115200
 #define HEARTBEAT_TIME            1000
+#define CONST_DEVICE_ID           "Kiln-"
 
 #define AUTOMATIC_MODE            1
 #define MANUAL_MODE               2
 #define SIMULATION_MODE           3
 #define NUMER_OF_MODES            3 // make this equal to the last mode to trap errors
 
-//#define USE_WEB_SERVER          // enabling this will disable modbustcp
-
 /* global variables */
 bool Safety_Ok = false;
 uint16_t Mode = AUTOMATIC_MODE,  Mode_Last = AUTOMATIC_MODE;
 bool ThermalRunawayDetected = false, ui_ThermalRunawayOverride = false;
-
-#ifdef USE_WEB_SERVER
-  /* web server */
-  //#include <ESPAsyncTCP.h>
-  #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
-  AsyncWebServer server(WIFI_LISTENING_PORT);
-  #include <WebSocketsServer.h>  // Websockets by Markus Sattler https://github.com/Links2004/arduinoWebSockets
-  WebSocketsServer webSocket = WebSocketsServer(WIFI_LISTENING_PORT+1);
-#else
-  #include <ESP8266WiFi.h> // will need this for wifi
-#endif
+String DEVICE_ID(CONST_DEVICE_ID);
 
 /* wifi */
-//#include <ESP8266WiFi.h>
-#define WIFI_SSID       "Thomas_301"
-#define WIFI_PASSWORD   "RS232@12"
-void connectWifi(int delaytime) { 
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  if (delaytime>0){
-    int TryCount = 0;
-    while (WiFi.waitForConnectResult() != WL_CONNECTED && TryCount < 3) {
-      TryCount++;
-      Serial.println("Wifi Connection Failed! Retrying...");
-      delay(delaytime);
-      //ESP.restart();
-    }
-  }
-  if (WiFi.status() == WL_CONNECTED) {
-    WiFi.setAutoReconnect(true);
-    WiFi.persistent(true);
-  }
-} 
+#include <ESP8266WiFi.h>
+#include <DNSServer.h>
+#include <ESP8266WebServer.h>
+#include <WiFiManager.h>  
 void checkWifi() {
-  if (WiFi.status() != WL_CONNECTED) { 
+  if ((WiFi.status() != WL_CONNECTED) || (WiFi.localIP().toString() == "0.0.0.0")) { 
     //Serial.println("Reconnecting to Wifi");
     WiFi.reconnect();
     //connectWifi(0);
   }
+}
+void setupWifiManager() {   
+  // The extra parameters to be configured (can be either global or just in the setup)
+  // After connecting, parameter.getValue() will get you the configured value
+  // id/name placeholder/prompt default length
+  // Local intialization. Once its business is done, there is no need to keep it around
+  WiFiManager wifiManager;
+
+  //reset settings - for testing
+  //wifiManager.resetSettings();
+
+  //set minimum quality of signal so it ignores AP's under that quality
+  //defaults to 8%
+  wifiManager.setMinimumSignalQuality();
+  
+  // set custom ip for portal
+  //wifiManager.setAPConfig(IPAddress(10,0,1,1), IPAddress(10,0,1,1), IPAddress(255,255,255,0));
+  
+  /*
+  if (BUTTON_STATE == LOW) {
+    if (!wifiManager.startConfigPortal(DEVICE_ID.c_str())) {
+      Serial.println("failed to connect and hit timeout");
+      delay(3000);
+      ESP.reset();
+      delay(5000);
+    }
+  } else {
+    wifiManager.autoConnect(DEVICE_ID.c_str());
+  }
+  */
+
+    wifiManager.autoConnect(DEVICE_ID.c_str());
+    //WiFi.mode(WIFI_STA);
+    //WiFi.begin();
+    //WiFi.setAutoReconnect(true);
+    //WiFi.persistent(true);
 }
 
 /* flash */
@@ -137,14 +146,11 @@ void initLittleFS() {
 /* ota */
 #include <ArduinoOTA.h>
 #define OTA_PASSWORD    "ProFiBus@12"
-#define OTA_HOSTNAME    "Kiln-"
 void setupOTA(){
   // Port defaults to 8266
   // ArduinoOTA.setPort(8266);
   // Hostname defaults to esp8266-[ChipID]
-  String hostname(OTA_HOSTNAME);
-  hostname += String(ESP.getChipId(), HEX);
-  ArduinoOTA.setHostname(hostname.c_str());
+  ArduinoOTA.setHostname(DEVICE_ID.c_str());
   // No authentication by default
   //ArduinoOTA.setPassword((const char *)OTA_PASSWORD);
   ArduinoOTA.onStart([]() {
@@ -853,11 +859,7 @@ void handleMainContactor() {
 
 /* modbus */
 #include <ModbusRTU.h> // https://github.com/emelianov/modbus-esp8266
-#ifdef USE_WEB_SERVER
-  // dont include modbus tcp
-#else
-  #include <ModbusIP_ESP8266.h>
-#endif
+#include <ModbusIP_ESP8266.h>
 #define SLAVE_ID                  1
 /* coils (RW) */
 #define MB_CMD_SELECT_SCHEDULE    1
@@ -920,11 +922,7 @@ void handleMainContactor() {
 #define MB_STS_MEAS_RATE_CH0      40
 #define MB_STS_MEAS_RATE_CH1      42
 ModbusRTU mb_rtu;
-#ifdef USE_WEB_SERVER
-  // dont include modbus tcp
-#else
-  ModbusIP mb_ip;
-#endif
+ModbusIP mb_ip;
 int HEARTBEAT_VALUE = 0;
 bool ui_EepromWritten = false;
 unsigned long EepromWritten_Timer = millis();
@@ -1082,12 +1080,7 @@ void handleModbus() {
   DoubleToIreg(MB_STS_MEAS_RATE_CH1, MeasuredRatePerHour_ch1);
 
   mb_rtu.task();
-
-#ifdef USE_WEB_SERVER
-  // dont include modbus tcp
-#else
   mb_ip.task();
-#endif
   
   /* coils (RW) */
   ui_SelectSchedule = mb_rtu.Coil(MB_CMD_SELECT_SCHEDULE);
@@ -1170,11 +1163,7 @@ void handleModbus() {
 }
 void setupModbus() {
   //Serial.begin(SERIAL_BAUD_RATE, SERIAL_8N1);
-#ifdef USE_WEB_SERVER
-  // dont include modbus tcp
-#else
   mb_ip.server();   //Start Modbus IP
-#endif
   mb_rtu.begin(&Serial);
   mb_rtu.slave(SLAVE_ID);
   /* coils (RW) */
@@ -1554,297 +1543,28 @@ void applyDefaultSettings() {
   writeSettingsToEeeprom();
 }
 
-#ifdef USE_WEB_SERVER
-/* websockets */
-#include <ArduinoJson.h>
-#include <StreamString.h>
-void setupWebsocket() {
-/*
-
-JSON body handling with ArduinoJson
-
-Endpoints which consume JSON can use a special handler to get ready to use JSON data in the request callback:
-
-#include "AsyncJson.h"
-#include "ArduinoJson.h"
-
-AsyncCallbackJsonWebHandler* handler = new AsyncCallbackJsonWebHandler("/rest/endpoint", [](AsyncWebServerRequest *request, JsonVariant &json) {
-  JsonObject& jsonObj = json.as<JsonObject>();
-  // ...
-});
-server.addHandler(handler);
-
-*/
-
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){ // https://github.com/me-no-dev/ESPAsyncWebServer
-    request->send(LittleFS, "/MAIN.html");
-  });
-  server.on("/SCHEDULES.html", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/SCHEDULES.html");
-  });
-  server.on("/MAIN.html", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/MAIN.html");
-  });
-  server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/favicon.ico");
-  });
-  server.on("/apple-touch-icon.png", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/apple-touch-icon.png");
-  });
-  server.on("/favicon-16x16.png", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/favicon-16x16.png");
-  });
-  server.on("/apple-touch-icon.png", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/apple-touch-icon.png");
-  });
-  server.on("/favicon-32x32.png", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/favicon-32x32.png");
-  });
-  server.on("/favicon-16x16.png", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/favicon-16x16.png");
-  });
-  server.on("/site.webmanifest", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/site.webmanifest");
-  });
-
-  server.begin();
-  webSocket.begin();
-  webSocket.onEvent(webSocketEvent);
-}
-void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length) {
-  // num - number of connections. maximum of 5
-  /*
-    type is the response type:
-    0 – WStype_ERROR
-    1 – WStype_DISCONNECTED
-    2 – WStype_CONNECTED
-    3 – WStype_TEXT
-    4 – WStype_BIN
-    5 – WStype_FRAGMENT_TEXT_START
-    6 – WStype_FRAGMENT_BIN_START
-    7 – WStype_FRAGMENT
-    8 – WStype_FRAGMENT_FIN
-    9 – WStype_PING
-    10- WStype_PONG - reply from ping
-  */
-  // payload - the data (note this is a pointer)
-
-  if(type == WStype_TEXT)
-  {
-    /*String payload_str = String((char*) payload);
-
-    if(payload_str == "CMD-START_PROFILE") {
-      ui_StartProfile = true;
-    }
-    if(payload_str == "CMD-STOP_PROFILE") {
-      ui_StopProfile = true;
-    }*/
-    
-    DynamicJsonDocument jsonBuffer(128);
-    deserializeJson(jsonBuffer, payload);
-    const char* topic = jsonBuffer["topic"];
-    if(strcmp(topic, "CMD-START_PROFILE") == 0) {
-      ui_StartProfile = true;
-    }
-    if(strcmp(topic, "CMD-STOP_PROFILE") == 0) {
-      ui_StopProfile = true;
-    }
-    if(strcmp(topic, "CMD-CHANGE_MODE") == 0) {
-      if (Mode >= NUMER_OF_MODES) {
-        Mode = 1;
-      } else {
-        Mode++;
-      }
-    }
-    if(strcmp(topic, "CMD-RELEASE_HOLD") == 0) {
-      ui_Segment_HoldRelease = true;
-    }
-    if(strcmp(topic, "CMD-NEXT_SCHEDULE") == 0) {
-      if (ui_SelectedSchedule >= NUMBER_OF_SCHEDULES -1) {
-        ui_SelectedSchedule = 0;
-      } else {
-        ui_SelectedSchedule++;
-      }
-    }
-    if(strcmp(topic, "CMD-PREV_SCHEDULE") == 0) {
-      if (ui_SelectedSchedule <= 0) {
-        ui_SelectedSchedule = NUMBER_OF_SCHEDULES - 1;
-      } else {
-        ui_SelectedSchedule--;
-      }
-    }
-
-
-  } 
-    else  // event is not TEXT. Display the details in the serial monitor
-  {
-    Serial.print("WStype = ");   Serial.println(type);  
-    Serial.print("WS payload = ");
-    // since payload is a pointer we need to type cast to char
-    for(int i = 0; i < length; i++) { Serial.print((char) payload[i]); }
-    Serial.println();
-  }
-}
-void broadcastUpdates() {
-  /*
-  {
-  "topic":"gen",
-    "data": {
-      "id1": "cone 05 bisque",
-      "id2": "candle",
-      "id3": 1,
-      "id4": "hh:mm:ss",
-      "id5": 1200.0,
-      "id6": 1234.0,
-      "id7": 1234.0,
-      "id8": 1,
-      "id9": false,
-      "id10": false,
-      "id11": true,
-      "id12": -100
-    }
-  }
-  */
-  DynamicJsonDocument  jsonBuffer(400); // https://arduinojson.org/v6/assistant/
-  DynamicJsonDocument  jsonBuffer_data(400); // https://arduinojson.org/v6/assistant/
-  StreamString databuf;
-  jsonBuffer_data["id1"] = LoadedSchedule.Name; 
-  jsonBuffer_data["id2"] = LoadedSchedule.Segments[SegmentIndex].Name;
-  jsonBuffer_data["id3"] = LoadedSchedule.Segments[SegmentIndex].State;
-
-  char t_sec[17];
-  itoa(Segment_TimeRemaining.seconds,t_sec, 10);
-  char t_min[17];
-  itoa(Segment_TimeRemaining.minutes,t_min, 10);
-  char t_hour[17];
-  itoa(Segment_TimeRemaining.hours,t_hour, 10);
-
-  int j=0;
-  char time_remaining[55] = {'\0'};
-
-  if (Segment_TimeRemaining.hours < 10) {
-    time_remaining[j] = '0';
-    j++;
-  }
-
-  for (int i=0; t_hour[i] != '\0'; i++) {
-    time_remaining[j] = t_hour[i];
-    j++;
-  }
-
-  time_remaining[j] = ':';
-  j++;
-
-  if (Segment_TimeRemaining.minutes < 10) {
-    time_remaining[j] = '0';
-    j++;
-  }
-
-  for (int i=0; t_min[i] != '\0'; i++) {
-    time_remaining[j] = t_min[i];
-    j++;
-  }
-
-  time_remaining[j] = ':';
-  j++;
-
-  if (Segment_TimeRemaining.seconds < 10) {
-    time_remaining[j] = '0';
-    j++;
-  }
-
-  for (int i=0; t_sec[i] != '\0'; i++) {
-    time_remaining[j] = t_sec[i];
-    j++;
-  }
-
-  jsonBuffer_data["id4"] = time_remaining; // Segment_TimeRemaining.hours
-  jsonBuffer_data["id5"] = ui_Setpoint;
-  jsonBuffer_data["id6"] = round(temperature_ch0*10)/10; // shift the original value by one decimal, round it, shift it back
-  jsonBuffer_data["id7"] = round(temperature_ch1*10)/10;
-  jsonBuffer_data["id8"] = Mode;
-  jsonBuffer_data["id9"] = ui_Segment_HoldReleaseRequest;
-  jsonBuffer_data["id10"] = ThermalRunawayDetected;
-  jsonBuffer_data["id11"] = Safety_Ok;
-  jsonBuffer_data["id12"] = HEARTBEAT_VALUE;
-
-  jsonBuffer["topic"] = "status";
-  jsonBuffer["data"] = jsonBuffer_data;
-  serializeJson(jsonBuffer,databuf);
-  webSocket.broadcastTXT(databuf);
-}
-#endif
-
 /* setup */
 unsigned long timer_heartbeat;
 void setup() {
-  //
-  // start serial com 
-  //
+      
+  DEVICE_ID += String(ESP.getChipId(), HEX);
+
   Serial.begin(SERIAL_BAUD_RATE, SERIAL_8N1);
   delay(500); // give the serial port time to start up
 
-  //
-  // start simulated eeprom
-  //
   EEPROM.begin(EEPROM_SIZE);
 
-  //
-  // get/set settings
-  //
   checkInit();
   readSettingsFromEeeprom();
-
-  //
-  // start up the file system
-  //
   initLittleFS();
-   
-  //
-  // setup pins
-  //
   setupPins();
-
-  //
-  // setup timers
-  //
   timer_heartbeat = millis();
-
-  //
-  // setup PID
-  //
   setupPID();
-
-  //
-  // setup thermocouple sensors
-  //
   setupThermocouples();
-
-  //
-  // setup wifi
-  //
-  connectWifi(5000);
-  
-#ifdef USE_WEB_SERVER
-  //
-  // webSocket
-  //
-  setupWebsocket();
-#endif
-
-  //
-  // setup OTA
-  //
+  setupWifiManager();
   setupOTA();
-
-  //
-  // setup modbus
-  //
   setupModbus();
 
-  //
-  // done with setup
-  //
   Serial.println("Ready");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
@@ -1857,7 +1577,7 @@ void loop() {
   //
   // handle logic
   //
-  checkWifi();
+  //checkWifi();
   handleSafetyCircuit();
   handleCal();
   handleTemperature();
@@ -1873,9 +1593,6 @@ void loop() {
   //
   if (millis() - timer_heartbeat > HEARTBEAT_TIME ){
     timer_heartbeat = millis();
-#ifdef USE_WEB_SERVER
-    broadcastUpdates(); // send out websockets updates
-#endif
     if (HEARTBEAT_VALUE>=100) {
       HEARTBEAT_VALUE = 0;
     } else {
@@ -1889,13 +1606,6 @@ void loop() {
       //Serial.println("Heartbeat On");
     }
   }
-
-#ifdef USE_WEB_SERVER
-  //
-  // handle websocket stuffs
-  //
-  webSocket.loop();
-#endif
   
   //
   // handle OTA requests
