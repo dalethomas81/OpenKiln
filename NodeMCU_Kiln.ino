@@ -10,6 +10,12 @@
     Upload Speed: 115200
     Erase Flash: Only Sketch (if using emulated EEPROM 'All Flash Contents' will overwrite it!)
     Builtin LED: 2
+
+
+    "board": "esp8266:esp8266:nodemcuv2",
+    "configuration": "xtal=160,vt=flash,exception=legacy,ssl=all,eesz=4M1M,led=2,ip=lm2f,dbg=Disabled,lvl=None____,wipe=none,baud=115200",
+
+
 *****************************************/
 
 // NOTE: ****** kiln was flashed with ESP Board version 2.7.2
@@ -802,6 +808,16 @@ void handleThermalRunaway() {
           (MeasuredRatePerHour_ch1 < LoadedSchedule.Segments[SegmentIndex].RampRate - RateTolerance)) {
             RateDifferenceDetected = true;
           }
+      /* ch0 */
+      if ((temperature_ch0 > Setpoint_ch0 + TempTolerance) || 
+          (temperature_ch0 < Setpoint_ch0 - TempTolerance)) {
+            TemperatureDifferenceDetected = true;
+          }
+      /* ch1 */
+      if ((temperature_ch1 > Setpoint_ch1 + TempTolerance) || 
+          (temperature_ch1 < Setpoint_ch1 - TempTolerance)) {
+            TemperatureDifferenceDetected = true;
+          }
       break;
     case SEGMENT_STATE_SOAK:
       /* ch0 */
@@ -830,7 +846,7 @@ void handleThermalRunaway() {
   ThermalRunawayRateTimer_Elapsed = millis() - ThermalRunawayRate_Timer;
   if (ThermalRunawayRateTimer_Elapsed > THERMAL_RUNAWAY_RATE_TIMER || !RateDifferenceDetected) {
     if (RateDifferenceDetected) {
-      ThermalRunawayDetected = true;
+      //ThermalRunawayDetected = true;
     } else {
       ThermalRunawayRate_Timer = millis();
     }
@@ -1554,7 +1570,7 @@ void setup() {
 
   EEPROM.begin(EEPROM_SIZE);
 
-  checkInit();
+  //checkInit();
   readSettingsFromEeeprom();
   initLittleFS();
   setupPins();
