@@ -14,3 +14,7 @@ https://icons8.com/icon/25058/potter's-wheel
 https://favicon.io/emoji-favicons/fire/
 
 https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/ConfiguringWebApplications/ConfiguringWebApplications.html
+
+
+installing esp libraries for arduino
+https://randomnerdtutorials.com/how-to-install-esp8266-board-arduino-ide/
