@@ -4,7 +4,7 @@ OpenKiln was born from the need to control my wifes "new" old kiln that she boug
 
 OpenKiln uses an ESP8266 (NodeMCU) to control 2 heating elements inside the kiln via high current solid state relays. In the beginning OpenKiln served its own web page - which was awesome - but I decided to move away from that for safety reasons. I didn't want the webservice to lock up the controller and cause a fire. So, now OpenKiln hosts it interface via Modbus/TCP and I use Node-Red to host the webpage. You can find the flow [here](/Source/Node-Red/Flow.md).
 
-![Illustration](/Media/Illustration-Dark.jpeg)
+![Illustration](/Media/Illustration-Dark.PNG)
 
 ## Documentation ##
 
